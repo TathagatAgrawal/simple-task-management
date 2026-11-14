@@ -88,6 +88,7 @@ Full background is in section 10 of the design plan. In short, on the Windows 10
 | `deploy\windows\status.ps1` | Check the app, Tailscale and the latest backup |
 | `deploy\windows\restart.ps1` | Restart the app (`-Stop` to just stop it) |
 | `deploy\windows\update.ps1` | Back up, pull the new version, reinstall, restart |
+| `deploy\windows\uninstall.ps1` | Remove the app completely (see below) |
 
 ### Restoring a backup
 
@@ -96,6 +97,16 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\restart.ps1 -Stop
 copy "<BACKUP_DIR>\tasks-2026-11-14-230000.db" C:\TaskBoard\data\tasks.db
 powershell -ExecutionPolicy Bypass -File deploy\windows\restart.ps1
 ```
+
+### Uninstalling
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\TaskBoard\deploy\windows\uninstall.ps1
+```
+
+You'll be asked to type `REMOVE` to confirm. It removes the TaskBoard scheduled task first (so the app can't restart itself), stops the app, offers to save a copy of the database to your Desktop, removes the Tailscale Serve address, and deletes `C:\TaskBoard`. It then asks, one at a time, whether to also delete the backups, remove uv and its Python, and let the PC sleep again.
+
+Always uninstall with the script, or stop the app first: Windows can't delete the files the running app is using. The script is self-contained, so if the folder is already half-deleted, copy just `uninstall.ps1` from the repo onto the PC and run it from anywhere (add `-AppDir "D:\path"` if the app wasn't in `C:\TaskBoard`).
 
 If the only admin forgets their password: `uv run simple-task-management set-password <username>` on the host PC.
 
