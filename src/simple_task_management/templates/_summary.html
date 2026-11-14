@@ -1,0 +1,19 @@
+{% set groups = [("overdue", "Overdue"), ("today", "Due today"), ("soon", "Next 3 days")] %}
+<div class="summary">
+  {% for key, label in groups %}
+  <div class="sumcard {{ key }}">
+    <h3><span>{{ label }}</span><span>{{ buckets[key] | length }}</span></h3>
+    {% if buckets[key] %}
+    <ul>
+      {% for t in buckets[key] %}
+      <li><button type="button" class="linkish" hx-get="/tasks/{{ t.id }}" hx-target="#panel" hx-swap="innerHTML">{{ t.title }}</button>
+        {% if key != "today" %}<span class="muted small">· {{ short_date(t.due, today) }}</span>{% endif %}
+        {% if t.repeat != "none" %}<span title="Repeats {{ t.repeat }}">🔁</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small">Nothing {{ "overdue" if key == "overdue" else "due" }}.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

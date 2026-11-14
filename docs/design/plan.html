@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Board Design Plan</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --surface: #ffffff;
+    --surface-2: #f3f1ec;
+    --text: #1d1d1b;
+    --muted: #66645e;
+    --border: #e2dfd7;
+    --accent: #2f5d50;
+    --accent-soft: #e3eee9;
+    --red: #b4362b;
+    --red-soft: #f8e4e1;
+    --amber: #9a6400;
+    --amber-soft: #fbefd6;
+    --blue: #2d5b9a;
+    --blue-soft: #e2ebf7;
+    --grey-soft: #eceae4;
+    --code-bg: #f3f1ec;
+    --shadow: 0 6px 18px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --surface: #1f1f1c; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a3a199;
+      --border: #3a3934; --accent: #7fb8a4; --accent-soft: #23362f; --red: #ec8a7f; --red-soft: #3d2320;
+      --amber: #e3b45c; --amber-soft: #3a2f18; --blue: #8fb3e6; --blue-soft: #1f2b3d; --grey-soft: #2e2d29;
+      --code-bg: #2a2a26; --shadow: 0 6px 18px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --surface: #1f1f1c; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a3a199;
+    --border: #3a3934; --accent: #7fb8a4; --accent-soft: #23362f; --red: #ec8a7f; --red-soft: #3d2320;
+    --amber: #e3b45c; --amber-soft: #3a2f18; --blue: #8fb3e6; --blue-soft: #1f2b3d; --grey-soft: #2e2d29;
+    --code-bg: #2a2a26; --shadow: 0 6px 18px rgba(0,0,0,.5);
+  }
+  /* Mockups pinned to one theme, regardless of the document's theme */
+  .force-light {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f3f1ec; --text: #1d1d1b; --muted: #66645e;
+    --border: #e2dfd7; --accent: #2f5d50; --accent-soft: #e3eee9; --red: #b4362b; --red-soft: #f8e4e1;
+    --amber: #9a6400; --amber-soft: #fbefd6; --blue: #2d5b9a; --blue-soft: #e2ebf7; --grey-soft: #eceae4;
+    --shadow: 0 6px 18px rgba(0,0,0,.12);
+    color: var(--text);
+  }
+  .force-dark {
+    --bg: #161614; --surface: #1f1f1c; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a3a199;
+    --border: #3a3934; --accent: #7fb8a4; --accent-soft: #23362f; --red: #ec8a7f; --red-soft: #3d2320;
+    --amber: #e3b45c; --amber-soft: #3a2f18; --blue: #8fb3e6; --blue-soft: #1f2b3d; --grey-soft: #2e2d29;
+    --shadow: 0 6px 18px rgba(0,0,0,.5);
+    color: var(--text);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 16px 96px; }
+  header.doc { border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 8px; position: relative; }
+  header.doc .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .theme-toggle { position: absolute; top: 0; right: 0; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .theme-toggle button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 4px 10px; cursor: pointer; }
+  .theme-toggle button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 10px; letter-spacing: -0.01em; padding-right: 200px; }
+  h2 { font-size: 24px; margin: 56px 0 12px; padding-top: 8px; letter-spacing: -0.005em; }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p, li { max-width: 76ch; }
+  a { color: var(--accent); }
+  .lede { font-size: 18px; color: var(--muted); max-width: 72ch; }
+  .changes { background: var(--blue-soft); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; margin: 20px 0; }
+  .changes h3 { margin: 0 0 6px; font-size: 15px; color: var(--blue); }
+  .changes ul { margin: 0; padding-left: 20px; }
+  nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 24px 0; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 2px 0; break-inside: avoid; }
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 28px; padding-right: 0; }
+    .theme-toggle { position: static; margin-bottom: 12px; }
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  .table-scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-weight: 600; background: var(--surface-2); }
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
+  .callout p { margin: 4px 0; }
+  .decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+  .decision { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .decision .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .decision .v { font-size: 17px; font-weight: 600; margin: 2px 0 4px; }
+  .decision .w { font-size: 14px; color: var(--muted); }
+  .mermaid-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 16px 0; overflow-x: auto; }
+  .mermaid-box .cap { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .mermaid { text-align: center; background: none; border: 0; padding: 0; }
+
+  /* ---------- UI mockups ---------- */
+  .mock-label { font-size: 13px; color: var(--muted); margin: 24px 0 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .mock-scroll { overflow-x: auto; }
+  .frame { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); min-width: 860px; }
+  .frame.narrow { min-width: 0; }
+  .frame .chrome { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  .frame .chrome i { width: 10px; height: 10px; border-radius: 50%; background: var(--border); display: inline-block; }
+  .frame .chrome .url { margin-left: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px 10px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app { font-size: 13px; line-height: 1.4; color: var(--text); background: var(--surface); }
+  .app .top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .app .brand { font-weight: 700; font-size: 15px; margin-right: 6px; }
+  .app .sel { border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; background: var(--surface); white-space: nowrap; }
+  .app .spacer { flex: 1; }
+  .app .btn { border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; background: var(--surface); white-space: nowrap; display: inline-block; }
+  .app .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  .app .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex: none; border: 2px solid var(--surface); }
+  .app .avatar.b { background: var(--blue-soft); color: var(--blue); }
+  .app .avatar.c { background: var(--amber-soft); color: var(--amber); }
+  .app .stack { display: inline-flex; }
+  .app .stack .avatar + .avatar { margin-left: -7px; }
+  .app .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .app .sumcard { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); }
+  .app .sumcard h5 { margin: 0 0 4px; font-size: 12px; display: flex; justify-content: space-between; }
+  .app .sumcard.over h5 { color: var(--red); }
+  .app .sumcard.today h5 { color: var(--amber); }
+  .app .sumcard ul { margin: 0; padding-left: 16px; color: var(--muted); }
+  .app .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 14px; background: var(--surface); }
+  .app .col { background: var(--surface-2); border-radius: 8px; padding: 8px; min-height: 120px; }
+  .app .col.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .app .col h6 { margin: 2px 4px 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; display: flex; justify-content: space-between; }
+  .app .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px; }
+  .app .card.sel-card { outline: 2px solid var(--accent); }
+  .app .card.dragging { box-shadow: var(--shadow); transform: rotate(-2deg); border-color: var(--accent); }
+  .app .card.ghost { border: 1px dashed var(--accent); background: transparent; color: var(--muted); text-align: center; }
+  .app .card .t { font-weight: 600; margin-bottom: 6px; }
+  .app .card .m { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  .app .card .l { display: flex; gap: 4px; align-items: center; }
+  .app .chip { font-size: 11px; border-radius: 10px; padding: 1px 7px; background: var(--grey-soft); color: var(--muted); white-space: nowrap; }
+  .app .chip.red { background: var(--red-soft); color: var(--red); }
+  .app .chip.amber { background: var(--amber-soft); color: var(--amber); }
+  .app .chip.green { background: var(--accent-soft); color: var(--accent); }
+  .app .chip.blue { background: var(--blue-soft); color: var(--blue); }
+  .app .chip.on { background: var(--accent); color: var(--bg); }
+  .app .cmt { display: flex; gap: 4px; align-items: center; color: var(--muted); font-size: 11px; }
+  .split { display: grid; grid-template-columns: 1fr 360px; }
+  .drawer { border-left: 1px solid var(--border); padding: 12px 14px; background: var(--surface); }
+  .drawer .x { float: right; color: var(--muted); }
+  .drawer h4 { margin: 0 0 8px; font-size: 15px; }
+  .drawer .fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; margin-bottom: 10px; }
+  .drawer .fields > span:nth-child(odd) { color: var(--muted); font-size: 12px; }
+  .drawer .desc { color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 0; margin-bottom: 8px; }
+  .tl { list-style: none; margin: 0 0 10px; padding: 0; }
+  .tl li { display: flex; gap: 8px; padding: 6px 0; }
+  .tl li.sys { color: var(--muted); font-size: 12px; padding-left: 30px; }
+  .tl .who { font-weight: 600; }
+  .tl .when { color: var(--muted); font-size: 11px; margin-left: 4px; }
+  .composer { border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--muted); min-height: 52px; margin-bottom: 6px; }
+  .modal-wrap { background: var(--surface-2); padding: 24px 16px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: 380px; max-width: 100%; padding: 14px 16px; box-shadow: var(--shadow); }
+  .modal h4 { margin: 0 0 10px; font-size: 15px; }
+  .modal .lbl { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .person { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .person .n { flex: 1; }
+  .input { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--muted); flex: 1; min-width: 0; background: var(--surface); }
+  .row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+  .menu { width: 220px; padding: 6px 0; }
+  .menu .mi { padding: 7px 14px; }
+  .menu .mi.sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg span { padding: 3px 9px; color: var(--muted); }
+  .seg span.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .login { max-width: 280px; margin: 0 auto; padding: 18px 8px; text-align: center; }
+  .login .input { display: block; margin: 8px 0; text-align: left; }
+  .theme-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .theme-pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <div class="theme-toggle" role="group" aria-label="Document theme">
+    <button type="button" data-set="system" aria-pressed="true">System</button>
+    <button type="button" data-set="light" aria-pressed="false">Light</button>
+    <button type="button" data-set="dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="eyebrow">Design plan · v2 · 14 Nov 2026</div>
+  <h1>A one-page task board for a three-person CA firm</h1>
+  <p class="lede">The smallest useful thing: a shared board of tasks, each with one or more owners, a due date, an optional repeat schedule and a running thread of updates. Everyone sees what's on their plate and what's due in the next three days. One admin can add or remove people. It runs on a Windows 10 PC in the office and staff open it privately over Tailscale from their desktop browsers.</p>
+</header>
+
+<div class="changes">
+  <h3>What changed since v1</h3>
+  <ul>
+    <li><strong>Host is a Windows 10 PC.</strong> Setup, the always-on service, power settings and backups are now Windows-specific (§9, §10).</li>
+    <li><strong>Everyone shares one Tailscale login</strong>, so Tailscale can't tell people apart. App passwords stay, and the "sign in via Tailscale identity" idea is dropped.</li>
+    <li><strong>Timezone fixed to IST</strong> (<code>Asia/Kolkata</code>).</li>
+    <li><strong>Recurring tasks are in v1</strong>: weekly, monthly, quarterly or yearly, with a new section explaining how they work (§6).</li>
+    <li><strong>Desktop-first.</strong> Phone layouts are out of scope for now, and cards move between columns by drag-and-drop.</li>
+    <li><strong>Multiple assignees per task</strong> via a <code>task_assignees</code> join table.</li>
+    <li><strong>Light and dark themes</strong> with a per-person switch (System / Light / Dark) that follows them to any computer. Use the switch at the top of this page to view the whole doc in either theme.</li>
+  </ul>
+</div>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#goals">Goals and non-goals</a></li>
+    <li><a href="#decisions">Key decisions at a glance</a></li>
+    <li><a href="#ui">UI mockups</a></li>
+    <li><a href="#arch">System design</a></li>
+    <li><a href="#db">Database and data model</a></li>
+    <li><a href="#recurring">Recurring tasks</a></li>
+    <li><a href="#flows">Key flows</a></li>
+    <li><a href="#api">Routes (HTTP endpoints)</a></li>
+    <li><a href="#auth">Login, admin and themes</a></li>
+    <li><a href="#tailscale">Running it on Windows over Tailscale</a></li>
+    <li><a href="#ops">Backups, updates, and keeping it running</a></li>
+    <li><a href="#layout">Project layout</a></li>
+    <li><a href="#phases">Build plan</a></li>
+    <li><a href="#later">Later versions</a></li>
+    <li><a href="#questions">Open questions</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="goals">1. Goals and non-goals</h2>
+
+<h3>What it must do</h3>
+<ul>
+  <li><strong>Tasks</strong> have a title, optional notes, <strong>one or more assignees</strong>, a due date and a status: <em>To do</em>, <em>Doing</em> or <em>Done</em>.</li>
+  <li><strong>Recurring tasks</strong> repeat weekly, monthly, quarterly or yearly. When one is marked done, the next occurrence appears on the board automatically with the same assignees.</li>
+  <li><strong>Updates thread</strong> on every task. Anyone can post a comment or progress note. Changes to status, assignees, due date and repeat schedule are logged in the same thread automatically, so the thread is the full history.</li>
+  <li><strong>My tasks view.</strong> Each person can filter the board to tasks they're assigned to, and this is the default when they open the app.</li>
+  <li><strong>"Coming up" summary</strong> across the top: <em>Overdue</em>, <em>Due today</em> and <em>Next 3 days</em>. Overdue isn't strictly in the brief, but a missed deadline that falls off the summary is the most likely way a task gets lost, so it's included.</li>
+  <li><strong>Drag-and-drop</strong> cards between columns to change status.</li>
+  <li><strong>One page.</strong> The board, the task details, the dialogs and the login screen are all states of the same page. Nothing navigates away.</li>
+  <li><strong>Light and dark themes.</strong> Each person picks System, Light or Dark, and the choice is saved to their account.</li>
+  <li><strong>Simple admin.</strong> One flag, <code>is_admin</code>. Admins can add people, remove (deactivate) people and reset passwords. Everyone else can do everything else.</li>
+  <li><strong>Runnable by non-technical people.</strong> Staff only ever open a bookmark. Setup is done once on the Windows host by whoever is most technical, and after that the app needs no maintenance.</li>
+</ul>
+
+<h3>What it deliberately won't do (v1)</h3>
+<ul>
+  <li><strong>No mobile layout.</strong> The target is a desktop browser at 1280px or wider. The page will still work on a 1024px laptop, but phones aren't designed for or tested. A phone layout comes in a later version (§14), and the design leaves room for it.</li>
+  <li>No roles or permissions beyond admin and not-admin. Anyone can edit any task, which is fine for three people who trust each other.</li>
+  <li>No projects, labels, priorities, sub-tasks, time tracking, file attachments or email notifications.</li>
+  <li>No manual ordering of cards within a column. Each column is always sorted by due date, which is the order that matters for deadlines. Drag-and-drop only moves cards between columns.</li>
+  <li>No public internet exposure. The app is only reachable from devices on the firm's tailnet (§10).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="decisions">2. Key decisions at a glance</h2>
+
+<div class="decisions">
+  <div class="decision"><div class="k">Language</div><div class="v">Python 3.13</div><div class="w">Already set up in this repo with <code>uv</code>. <code>uv</code> also installs Python on the Windows host.</div></div>
+  <div class="decision"><div class="k">Web framework</div><div class="v">FastAPI + Jinja2</div><div class="w">Server-rendered HTML. No build step, no Node.</div></div>
+  <div class="decision"><div class="k">Interactivity</div><div class="v">htmx + ~60 lines of JS</div><div class="w">htmx swaps parts of the page in place. Native HTML5 drag-and-drop needs no library.</div></div>
+  <div class="decision"><div class="k">Database</div><div class="v">SQLite (WAL mode)</div><div class="w">One file, nothing to install or administer, and easy to back up.</div></div>
+  <div class="decision"><div class="k">Auth</div><div class="v">Username + password, 30-day cookie</div><div class="w">Required, because the shared Tailscale login can't identify people.</div></div>
+  <div class="decision"><div class="k">Network access</div><div class="v">Tailscale Serve</div><div class="w">Private HTTPS URL on the tailnet. No port forwarding and no firewall rules.</div></div>
+  <div class="decision"><div class="k">Host</div><div class="v">Windows 10 PC</div><div class="w">Runs at boot via Task Scheduler, with Tailscale in "Run unattended" mode.</div></div>
+  <div class="decision"><div class="k">Theme</div><div class="v">System / Light / Dark</div><div class="w">CSS variables. The choice is stored on the user, so it follows them between computers.</div></div>
+</div>
+
+<div class="callout">
+  <p><strong>Why not Postgres, React, Docker, etc.?</strong> At three users and a few thousand tasks a year, each of those adds a moving part that someone has to keep running without adding anything the firm would notice. Docker on Windows 10 in particular means WSL2 and Docker Desktop, which is a lot of machinery for one small app. The whole app should be about 800 lines of Python plus templates, and a single <code>uv run</code> command should start it.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ui">3. UI mockups</h2>
+<p>There is one page, designed for a desktop browser. It has a top bar, the "coming up" strip and the board. A task panel slides in from the right when you click a card. Dialogs for new tasks and for managing people open over the same page. Names below are placeholders.</p>
+
+<div class="mock-label">Board · light theme · dragging a card from To do to Doing</div>
+<div class="mock-scroll">
+<div class="frame force-light">
+  <div class="chrome"><i></i><i></i><i></i><span class="url">https://tasks.your-tailnet.ts.net</span></div>
+  <div class="app">
+    <div class="top">
+      <span class="brand">Tasks</span>
+      <span style="color:var(--muted)">Showing</span><span class="sel">My tasks ▾</span>
+      <span class="spacer"></span>
+      <span class="btn primary">+ New task</span>
+      <span class="avatar">AS</span><span class="sel">Asha ▾</span>
+    </div>
+    <div class="summary">
+      <div class="sumcard over"><h5><span>Overdue</span><span>1</span></h5><ul><li>TDS return Q2 – Mehta &amp; Co</li></ul></div>
+      <div class="sumcard today"><h5><span>Due today</span><span>2</span></h5><ul><li>GSTR-3B – Patel Traders 🔁</li><li>Call bank re: audit letter</li></ul></div>
+      <div class="sumcard"><h5><span>Next 3 days</span><span>2</span></h5><ul><li>ITR – R. Sharma (Mon)</li><li>Board minutes draft (Tue)</li></ul></div>
+    </div>
+    <div class="board">
+      <div class="col">
+        <h6><span>To do</span><span>3</span></h6>
+        <div class="card ghost">ITR – R. Sharma</div>
+        <div class="card"><div class="t">Board minutes draft</div><div class="m"><span class="l"><span class="chip">Tue 18 Nov</span></span><span class="cmt">💬 1 <span class="stack"><span class="avatar">AS</span><span class="avatar b">RV</span></span></span></div></div>
+        <div class="card"><div class="t">Advance tax – Q3 reminders</div><div class="m"><span class="l"><span class="chip">15 Dec</span><span class="chip blue">🔁 Quarterly</span></span><span class="cmt">💬 0 <span class="avatar">AS</span></span></div></div>
+      </div>
+      <div class="col drop">
+        <h6><span>Doing</span><span>3</span></h6>
+        <div class="card"><div class="t">TDS return Q2 – Mehta &amp; Co</div><div class="m"><span class="l"><span class="chip red">2 days late</span><span class="chip blue">🔁 Quarterly</span></span><span class="cmt">💬 5 <span class="stack"><span class="avatar">AS</span><span class="avatar c">MK</span></span></span></div></div>
+        <div class="card dragging"><div class="t">ITR – R. Sharma</div><div class="m"><span class="l"><span class="chip">Mon 17 Nov</span></span><span class="cmt">💬 0 <span class="avatar">AS</span></span></div></div>
+        <div class="card"><div class="t">GSTR-3B – Patel Traders</div><div class="m"><span class="l"><span class="chip amber">Today</span><span class="chip blue">🔁 Monthly</span></span><span class="cmt">💬 2 <span class="avatar">AS</span></span></div></div>
+        <div class="card"><div class="t">Call bank re: audit letter</div><div class="m"><span class="l"><span class="chip amber">Today</span></span><span class="cmt">💬 1 <span class="avatar">AS</span></span></div></div>
+      </div>
+      <div class="col">
+        <h6><span>Done (last 14 days)</span><span>2</span></h6>
+        <div class="card"><div class="t">GSTR-3B – Patel Traders (Oct)</div><div class="m"><span class="l"><span class="chip green">Done 19 Oct</span></span><span class="cmt">💬 3 <span class="avatar">AS</span></span></div></div>
+        <div class="card"><div class="t">Reconcile Q2 ledger – Iyer</div><div class="m"><span class="l"><span class="chip green">Done 10 Nov</span></span><span class="cmt">💬 2 <span class="stack"><span class="avatar">AS</span><span class="avatar b">RV</span><span class="avatar c">MK</span></span></span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<ul>
+  <li><strong>Showing</strong> has <em>My tasks</em>, <em>Everyone</em> and each person's name. The "coming up" strip follows the same filter, so <em>Everyone</em> gives a firm-wide view of what's due.</li>
+  <li><strong>Cards</strong> show the due chip (red overdue, amber today, grey otherwise), a 🔁 chip if the task repeats, the comment count, and overlapping avatars for every assignee.</li>
+  <li><strong>Drag-and-drop</strong>: the column under the cursor gets a dashed outline, and the card's old spot shows a faint placeholder. On drop the card lands in date order. If the save fails, it snaps back and shows a small error banner.</li>
+  <li><strong>Done</strong> shows the last 14 days, and a "show older" link loads the rest.</li>
+</ul>
+
+<div class="mock-label">Task panel open · dark theme</div>
+<div class="mock-scroll">
+<div class="frame force-dark">
+  <div class="chrome"><i></i><i></i><i></i><span class="url">https://tasks.your-tailnet.ts.net/#task-42</span></div>
+  <div class="app split">
+    <div>
+      <div class="top"><span class="brand">Tasks</span><span style="color:var(--muted)">Showing</span><span class="sel">Everyone ▾</span><span class="spacer"></span><span class="btn primary">+ New task</span><span class="avatar b">RV</span><span class="sel">Ravi ▾</span></div>
+      <div class="board">
+        <div class="col"><h6><span>To do</span></h6>
+          <div class="card"><div class="t">Audit file prep – Iyer</div><div class="m"><span class="chip">Fri 21 Nov</span><span class="avatar b">RV</span></div></div>
+          <div class="card"><div class="t">Board minutes draft</div><div class="m"><span class="chip">Tue 18 Nov</span><span class="stack"><span class="avatar">AS</span><span class="avatar b">RV</span></span></div></div>
+        </div>
+        <div class="col"><h6><span>Doing</span></h6>
+          <div class="card sel-card"><div class="t">TDS return Q2 – Mehta &amp; Co</div><div class="m"><span class="chip red">2 days late</span><span class="stack"><span class="avatar">AS</span><span class="avatar c">MK</span></span></div></div>
+          <div class="card"><div class="t">Payroll – Nov</div><div class="m"><span class="chip">Thu 20 Nov</span><span class="avatar c">MK</span></div></div>
+        </div>
+        <div class="col"><h6><span>Done</span></h6>
+          <div class="card"><div class="t">Advance tax emails</div><div class="m"><span class="chip green">12 Nov</span><span class="avatar">AS</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="drawer">
+      <span class="x">✕</span>
+      <h4>TDS return Q2 – Mehta &amp; Co</h4>
+      <div class="fields">
+        <span>Status</span><span><span class="btn">To do</span> <span class="btn primary">Doing</span> <span class="btn">Done</span></span>
+        <span>Assignees</span><span><span class="chip on">Asha ✓</span> <span class="chip">Ravi</span> <span class="chip on">Meera ✓</span></span>
+        <span>Due</span><span class="sel">15 Nov 2026 📅</span>
+        <span>Repeats</span><span class="sel">Quarterly ▾</span>
+      </div>
+      <div class="desc">Form 24Q. Waiting on salary breakup for 2 employees from the client.</div>
+      <ul class="tl">
+        <li class="sys">Ravi created this · assigned Asha · repeats quarterly · 3 Nov</li>
+        <li><span class="avatar">AS</span><div><span class="who">Asha</span><span class="when">10 Nov, 4:12 pm</span><div>Emailed client for the missing salary breakup.</div></div></li>
+        <li class="sys">Asha moved this to Doing · added Meera · 10 Nov</li>
+        <li><span class="avatar b">RV</span><div><span class="who">Ravi</span><span class="when">Yesterday, 11:03 am</span><div>I'll call them today, they usually reply by phone.</div></div></li>
+        <li class="sys">Ravi changed due date 12 Nov → 15 Nov · Yesterday</li>
+      </ul>
+      <div class="composer">Write an update…</div>
+      <span class="btn primary">Post update</span>
+    </div>
+  </div>
+</div>
+</div>
+<p>The panel is a single place to read, edit and discuss a task. Assignees are toggle chips, one per active person, so with three people there's no dropdown to dig through. The status buttons do the same job as dragging, for anyone who prefers clicking. Lines in muted text are system entries written automatically, so there's never any doubt about who changed what. The URL hash (<code>#task-42</code>) lets someone paste a link to a specific task to a colleague.</p>
+
+<div class="mock-label">New task dialog · user menu with theme switch · people manager (admins only) · login</div>
+<div class="mock-scroll">
+<div class="frame narrow">
+  <div class="modal-wrap app">
+    <div class="modal">
+      <h4>New task</h4>
+      <div class="row"><span class="input">Title, e.g. "GSTR-3B – Patel Traders"</span></div>
+      <div class="lbl">Assign to (pick any)</div>
+      <div class="row"><span class="chip on">Asha ✓</span><span class="chip">Ravi</span><span class="chip">Meera</span></div>
+      <div class="lbl">Due · Repeats</div>
+      <div class="row"><span class="sel">📅 20 Nov 2026</span><span class="sel">Monthly ▾</span></div>
+      <div class="row" style="color:var(--muted); font-size:12px">Next one will be due 20 Dec 2026, then 20 Jan…</div>
+      <div class="lbl">Notes (optional)</div>
+      <div class="row"><span class="input" style="min-height:44px"></span></div>
+      <div class="row" style="margin-top:12px"><span class="spacer"></span><span class="btn">Cancel</span><span class="btn primary">Create</span></div>
+    </div>
+    <div class="modal menu">
+      <div class="mi" style="font-weight:600">Asha <span class="chip">admin</span></div>
+      <div class="mi">Theme<br><span class="seg" style="margin-top:4px"><span class="on">System</span><span>Light</span><span>Dark</span></span></div>
+      <div class="mi">Change password</div>
+      <div class="mi">Manage people</div>
+      <div class="mi sep">Sign out</div>
+    </div>
+    <div class="modal">
+      <h4>People</h4>
+      <div class="person"><span class="avatar">AS</span><span class="n">Asha <span class="chip">admin</span></span><span class="btn">Reset password</span></div>
+      <div class="person"><span class="avatar b">RV</span><span class="n">Ravi</span><span class="btn">Reset password</span><span class="btn">Remove</span></div>
+      <div class="person"><span class="avatar c">MK</span><span class="n">Meera</span><span class="btn">Reset password</span><span class="btn">Remove</span></div>
+      <div class="row" style="margin-top:10px"><span class="input">Name</span><span class="input">Username</span><span class="btn primary">Add</span></div>
+      <p style="color:var(--muted); font-size:12px; margin:8px 0 0">Adding someone shows a one-time temporary password to hand them. Removing someone keeps their history and takes them off any open tasks.</p>
+    </div>
+    <div class="modal">
+      <div class="login">
+        <div class="brand" style="font-size:18px">Tasks</div>
+        <span class="input">Username</span>
+        <span class="input">Password</span>
+        <span class="btn primary" style="display:block">Sign in</span>
+        <p style="color:var(--muted); font-size:12px">Stays signed in for 30 days on this computer.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h3>Light and dark side by side</h3>
+<p>Both themes use the same set of about 15 CSS variables, and only their values change. Status colours (red, amber, green, blue) are tuned separately for each theme so the chips stay readable on dark backgrounds.</p>
+<div class="theme-pair">
+  <div class="frame narrow force-light app" style="padding:12px">
+    <div class="card"><div class="t">GSTR-3B – Patel Traders</div><div class="m"><span class="l"><span class="chip amber">Today</span><span class="chip blue">🔁 Monthly</span></span><span class="stack"><span class="avatar">AS</span><span class="avatar b">RV</span></span></div></div>
+    <div class="card"><div class="t">TDS return Q2 – Mehta &amp; Co</div><div class="m"><span class="l"><span class="chip red">2 days late</span></span><span class="avatar c">MK</span></div></div>
+    <div class="card" style="margin:0"><div class="t">Reconcile ledger – Iyer</div><div class="m"><span class="l"><span class="chip green">Done 10 Nov</span></span><span class="avatar">AS</span></div></div>
+  </div>
+  <div class="frame narrow force-dark app" style="padding:12px">
+    <div class="card"><div class="t">GSTR-3B – Patel Traders</div><div class="m"><span class="l"><span class="chip amber">Today</span><span class="chip blue">🔁 Monthly</span></span><span class="stack"><span class="avatar">AS</span><span class="avatar b">RV</span></span></div></div>
+    <div class="card"><div class="t">TDS return Q2 – Mehta &amp; Co</div><div class="m"><span class="l"><span class="chip red">2 days late</span></span><span class="avatar c">MK</span></div></div>
+    <div class="card" style="margin:0"><div class="t">Reconcile ledger – Iyer</div><div class="m"><span class="l"><span class="chip green">Done 10 Nov</span></span><span class="avatar">AS</span></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="arch">4. System design</h2>
+
+<h3>Components</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+flowchart LR
+  subgraph Devices["Staff desktops (on the tailnet)"]
+    B1["Browser<br/>bookmark: https://tasks.tailnet.ts.net"]
+  end
+  subgraph Host["Windows 10 host PC (always on)"]
+    TS["Tailscale service<br/>Serve: HTTPS + cert<br/>(Run unattended)"]
+    TSK["Task Scheduler<br/>starts app at boot,<br/>restarts on crash"]
+    APP["uv run → Uvicorn<br/>FastAPI app<br/>Jinja2 + htmx"]
+    DB[("SQLite<br/>C:\TaskBoard\data\tasks.db")]
+    BK["Nightly backup<br/>(inside the app)"]
+    SYNC["OneDrive / Google Drive<br/>synced backup folder"]
+  end
+  B1 -- "WireGuard tunnel" --> TS
+  TS -- "http://127.0.0.1:8000" --> APP
+  TSK -. "launches" .-> APP
+  APP --> DB
+  BK -- "sqlite backup API" --> DB
+  BK -- "copy" --> SYNC
+</pre>
+<div class="cap">The app listens only on <code>127.0.0.1</code>, so Windows Firewall needs no changes and the only way in is through Tailscale Serve. The live database is <strong>not</strong> inside the synced folder, because cloud sync tools can corrupt a SQLite file while it's open. Only finished backup copies go there.</div>
+</div>
+
+<h3>How the "one page" works</h3>
+<p>The browser loads <code>/</code> once. After that, every click or drop sends a small htmx request and gets back an HTML fragment that replaces one region of the page: the board, the "coming up" strip, the task panel or a dialog. The server owns all state and rendering, so there's no client-side data model to keep in sync.</p>
+<div class="mermaid-box">
+<pre class="mermaid">
+flowchart TB
+  P["index.html (loaded once)"]
+  P --> R1["summary region<br/>GET /summary?who=me"]
+  P --> R2["board region<br/>GET /board?who=me"]
+  P --> R3["panel region<br/>GET /tasks/{id}"]
+  P --> R4["dialog region<br/>GET /tasks/new, GET /people"]
+  DND["drag-and-drop JS<br/>(board.js)"] -- "POST /tasks/{id}/move" --> R2
+  R3 -- "after any edit: HX-Trigger tasks-changed" --> R1
+  R3 -- "HX-Trigger tasks-changed" --> R2
+</pre>
+<div class="cap">When a task changes, the server sends an <code>HX-Trigger: tasks-changed</code> response header. The board and summary listen for it and reload themselves, so all regions stay consistent.</div>
+</div>
+
+<h3>Drag-and-drop</h3>
+<p>Drag-and-drop uses the browser's native HTML5 API, which works well on desktop and needs no library. Cards get <code>draggable="true"</code> and <code>data-task-id</code>, and each column has <code>data-status</code>. On <code>drop</code>, about 60 lines in <code>static/board.js</code> call <code>htmx.ajax("POST", "/tasks/42/move", {values: {status: "doing"}})</code>. The server writes the change and the history entry and returns the refreshed board. Dropping a card in its own column does nothing. Moving a recurring task to <em>Done</em> by dragging creates the next occurrence, the same as clicking the Done button (§6).</p>
+
+<h3>Seeing each other's changes</h3>
+<p>The board polls quietly every 60 seconds (<code>hx-trigger="every 60s, tasks-changed from:body"</code>) and also refreshes when the browser tab regains focus. Polling pauses while a drag is in progress so a refresh can't pull the card out from under the cursor.</p>
+
+<!-- ============================================================ -->
+<h2 id="db">5. Database and data model</h2>
+
+<h3>Why SQLite</h3>
+<div class="table-scroll">
+<table>
+  <tr><th></th><th>SQLite</th><th>Postgres / MySQL</th><th>Google Sheet / Airtable as DB</th></tr>
+  <tr><td>Install / admin on Windows</td><td>None, built into Python</td><td>A Windows service to install, secure, upgrade</td><td>None, but needs API keys and quotas</td></tr>
+  <tr><td>Backup</td><td>Copy one file</td><td><code>pg_dump</code> + scheduling</td><td>Vendor-managed</td></tr>
+  <tr><td>Fit for 3 users</td><td>Ideal. Handles thousands of writes/sec</td><td>Overkill</td><td>Slow, fragile, client data leaves the firm</td></tr>
+  <tr><td>Data stays on firm hardware</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+</table>
+</div>
+<p>Settings on connect: <code>PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;</code>. Use the stdlib <code>sqlite3</code> module with plain SQL in one <code>db.py</code>. Five tables don't need an ORM. The schema is a <code>schema.sql</code> file applied at startup, and a <code>PRAGMA user_version</code> number handles any later migrations.</p>
+
+<h3>Entity–relationship diagram</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+erDiagram
+  USERS ||--o{ TASK_ASSIGNEES : "is assigned"
+  TASKS ||--o{ TASK_ASSIGNEES : "has"
+  USERS ||--o{ TASKS : "created"
+  USERS ||--o{ UPDATES : "wrote"
+  TASKS ||--o{ UPDATES : "has thread"
+  TASKS |o--o| TASKS : "next occurrence of"
+  USERS ||--o{ SESSIONS : "signed in as"
+
+  USERS {
+    int id PK
+    text name
+    text username UK
+    text password_hash
+    int is_admin "0 or 1"
+    int is_active "0 = removed"
+    int must_change_password
+    text theme "system, light or dark"
+    text created_at
+  }
+  TASKS {
+    int id PK
+    text title
+    text notes
+    text due_date "YYYY-MM-DD"
+    text status "todo, doing or done"
+    text repeat "none, weekly, monthly, quarterly, yearly"
+    int repeat_day "anchor day of month, 1 to 31"
+    int series_id "first task in the chain"
+    int prev_task_id FK "occurrence this was made from"
+    int created_by FK
+    text created_at
+    text updated_at
+    text done_at
+  }
+  TASK_ASSIGNEES {
+    int task_id PK, FK
+    int user_id PK, FK
+    text added_at
+  }
+  UPDATES {
+    int id PK
+    int task_id FK
+    int author_id FK "NULL for system"
+    text kind "comment or event"
+    text body
+    text created_at
+  }
+  SESSIONS {
+    text token PK "random 32 bytes"
+    int user_id FK
+    text expires_at
+  }
+</pre>
+<div class="cap">Five tables. A task with no rows in <code>task_assignees</code> shows as "Unassigned". Comments and automatic change entries share the <code>updates</code> table, separated by <code>kind</code>, so the thread is one ordered query.</div>
+</div>
+
+<h3>Notes on the model</h3>
+<ul>
+  <li><strong>Dates</strong>: <code>due_date</code> is a plain date with no time. Timestamps are stored as UTC ISO strings and shown in IST. "Today" is always calculated in <code>Asia/Kolkata</code> through Python's <code>zoneinfo</code>, so it doesn't depend on the Windows clock's timezone setting. Windows has no built-in timezone database, so the <code>tzdata</code> package is added as a dependency.</li>
+  <li><strong>Multiple assignees</strong>: the composite primary key <code>(task_id, user_id)</code> prevents duplicates. Adding or removing an assignee writes an event to the thread, for example "Asha added Meera".</li>
+  <li><strong>Removing people</strong> is a soft delete (<code>is_active = 0</code>). Their name stays on old comments, they can no longer sign in, and their sessions are deleted. Their rows are removed from open tasks' assignees, with an event on each thread, so tasks shared with someone else just lose one avatar.</li>
+  <li><strong>Tasks are never hard-deleted</strong> in normal use. A "Delete" action in the panel exists to clean up mistakes and asks for confirmation.</li>
+  <li><strong>Indexes</strong>: <code>tasks(status, due_date)</code>, <code>task_assignees(user_id)</code>, <code>updates(task_id, created_at)</code> and a unique index on <code>tasks(prev_task_id)</code>. The last one guarantees a recurring task can never spawn two next occurrences.</li>
+</ul>
+
+<h3>The "coming up" query</h3>
+<pre><code>-- :today is computed in IST; :who is a user id, or NULL for everyone
+SELECT DISTINCT t.*
+FROM tasks t
+LEFT JOIN task_assignees a ON a.task_id = t.id
+WHERE t.status != 'done'
+  AND (:who IS NULL OR a.user_id = :who)
+  AND t.due_date &lt;= date(:today, '+3 days')
+ORDER BY t.due_date;
+-- Python then buckets rows into: overdue (&lt; today), today (= today), next 3 days (&gt; today)</code></pre>
+
+<h3>Task lifecycle</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> todo : created
+  todo --> doing : drag or Start
+  doing --> todo : drag back
+  doing --> done : drag or Mark done
+  todo --> done : drag or Mark done
+  done --> doing : Reopen
+  done --> [*] : hidden from board after 14 days
+  note right of done
+    If the task repeats, entering Done
+    creates the next occurrence in To do.
+  end note
+</pre>
+<div class="cap">Every transition is allowed, because people should never be blocked. Each one writes an event to the task's updates thread.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="recurring">6. Recurring tasks</h2>
+<p>CA work is full of fixed-rhythm deadlines: GST returns every month, TDS every quarter, ITR and audit every year. Recurring tasks keep these on the board without anyone retyping them.</p>
+
+<h3>How it works</h3>
+<ul>
+  <li><strong>Choices</strong>: <em>Never</em>, <em>Weekly</em>, <em>Monthly</em>, <em>Quarterly</em> (every 3 months) or <em>Yearly</em>. These are set from the "Repeats" dropdown in the new-task dialog or the task panel.</li>
+  <li><strong>Each occurrence is its own task.</strong> The thread for October's GSTR-3B stays with October's task. All occurrences share a <code>series_id</code>, so a "previous occurrences" link in the panel can list them.</li>
+  <li><strong>The next occurrence is created when the current one is marked Done</strong>, by drag or button. It copies the title, notes, assignees and repeat setting, starts in <em>To do</em>, and both threads get a linking event: "Next occurrence created, due 20 Dec" on the old one and "Continued from the 20 Nov task" on the new one.</li>
+  <li><strong>The next due date is calculated from the previous due date, not the completion date</strong>, so the schedule never drifts. Filing November's GSTR-3B late on 25 Nov still makes December's due on 20 Dec.</li>
+  <li><strong>Month-end handling</strong>: <code>repeat_day</code> remembers the original day of the month. A task anchored on the 31st goes 31 Jan → 28 Feb → 31 Mar, not 31 Jan → 28 Feb → 28 Mar.</li>
+  <li><strong>Reopening and re-closing</strong> a task doesn't create a duplicate, because the unique index on <code>prev_task_id</code> blocks it.</li>
+  <li><strong>Stop repeating</strong>: set Repeats to <em>Never</em> on the current occurrence, and no next one will be created.</li>
+  <li><strong>Irregular deadlines</strong>: some statutory dates aren't evenly spaced. For example, the Q4 TDS return is due 31 May instead of 30 April. For these, the person adjusts the date on the new occurrence, which is logged in the thread like any change. A "custom date list" schedule could be added later if this gets tedious.</li>
+</ul>
+
+<div class="mermaid-box">
+<pre class="mermaid">
+flowchart TD
+  A["Task moved to Done<br/>(drag or button)"] --> B{"repeat = none?"}
+  B -- yes --> Z["Done. Nothing else."]
+  B -- no --> C{"next occurrence already exists?<br/>(prev_task_id = this task)"}
+  C -- yes --> Z
+  C -- no --> D["Compute next due date<br/>from previous due date + period,<br/>day = min(repeat_day, days in month)"]
+  D --> E["INSERT new task: same title, notes,<br/>repeat, series_id; status todo"]
+  E --> F["Copy assignees<br/>(active people only)"]
+  F --> G["Write linking events<br/>on both threads"]
+  G --> H["Return refreshed board<br/>(new card appears in To do)"]
+</pre>
+<div class="cap">All of this runs in the same database transaction as the status change, so a crash can't leave a done task without its successor.</div>
+</div>
+
+<div class="callout">
+  <p><strong>Why create the next one on completion rather than on a calendar?</strong> It's simpler (no scheduler), and it never produces a pile of identical overdue copies if someone falls behind. The cost is that next month's task isn't visible until this month's is done. For a firm working one period at a time that's usually what people want. The overdue one stays red at the top of the summary until it's dealt with.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="flows">7. Key flows</h2>
+
+<h3>Dragging a card to a new column</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+sequenceDiagram
+  actor U as Asha (browser)
+  participant J as board.js
+  participant A as FastAPI
+  participant D as SQLite
+  U->>J: drags card 42 from To do and drops on Doing
+  J->>J: pause polling, add dashed outline to target column
+  J->>A: POST /tasks/42/move status=doing (cookie + CSRF header)
+  A->>D: BEGIN
+  A->>D: UPDATE tasks SET status = doing
+  A->>D: INSERT updates (event: Asha moved this to Doing)
+  A->>D: COMMIT
+  A-->>J: 200 · board HTML · HX-Trigger tasks-changed
+  J->>U: swap board, resume polling
+  Note over J,A: On error the board is re-fetched, so the card snaps back, and a banner says "Couldn't save, try again".
+</pre>
+</div>
+
+<h3>Posting an update</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+sequenceDiagram
+  actor U as Ravi (browser)
+  participant H as htmx
+  participant A as FastAPI
+  participant D as SQLite
+  U->>H: types note, clicks "Post update"
+  H->>A: POST /tasks/42/updates (body, session cookie)
+  A->>A: resolve session to user
+  A->>D: INSERT INTO updates (task 42, Ravi, comment, body)
+  A->>D: UPDATE tasks SET updated_at = now
+  A-->>H: 200 · updated thread HTML · HX-Trigger tasks-changed
+  H->>U: swaps the thread in the panel, clears the box
+  H->>A: GET /board, GET /summary (triggered)
+  A-->>H: fresh fragments (comment counts updated)
+</pre>
+</div>
+
+<h3>Signing in</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+sequenceDiagram
+  actor U as User
+  participant A as FastAPI
+  participant D as SQLite
+  U->>A: GET /
+  A->>A: no valid session cookie
+  A-->>U: index.html in login state
+  U->>A: POST /login (username, password)
+  A->>D: SELECT user WHERE username AND is_active
+  A->>A: scrypt verify (constant-time compare)
+  A->>D: INSERT session (random token, expires in 30 days)
+  A-->>U: Set-Cookie session (HttpOnly, Secure, SameSite=Lax) · HX-Redirect /
+  Note over U,A: If must_change_password = 1, the page shows a "set your password" form first.
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="api">8. Routes (HTTP endpoints)</h2>
+<p>All routes except <code>/</code> and <code>/login</code> require a session. Routes marked <em>admin</em> also require <code>is_admin</code>. Everything returns HTML fragments for htmx except <code>/</code>, which returns the full page.</p>
+<div class="table-scroll">
+<table>
+  <tr><th>Method</th><th>Path</th><th>Returns / does</th></tr>
+  <tr><td>GET</td><td><code>/</code></td><td>Full page: the app if signed in, otherwise the login state</td></tr>
+  <tr><td>POST</td><td><code>/login</code> · <code>/logout</code></td><td>Create / delete session</td></tr>
+  <tr><td>POST</td><td><code>/me/password</code></td><td>Change own password</td></tr>
+  <tr><td>POST</td><td><code>/me/theme</code></td><td>Save <code>system</code> / <code>light</code> / <code>dark</code>, then re-render the page attribute</td></tr>
+  <tr><td>GET</td><td><code>/summary?who=me|all|{id}</code></td><td>"Coming up" strip</td></tr>
+  <tr><td>GET</td><td><code>/board?who=…&amp;done_days=14</code></td><td>Three columns of cards</td></tr>
+  <tr><td>GET</td><td><code>/tasks/new</code></td><td>New-task dialog</td></tr>
+  <tr><td>POST</td><td><code>/tasks</code></td><td>Create task (title, notes, due, repeat, assignee ids[])</td></tr>
+  <tr><td>GET</td><td><code>/tasks/{id}</code></td><td>Task panel with thread</td></tr>
+  <tr><td>POST</td><td><code>/tasks/{id}</code></td><td>Update title / notes / due / repeat, writing events for each change</td></tr>
+  <tr><td>POST</td><td><code>/tasks/{id}/move</code></td><td>Change status (used by drag-and-drop and the status buttons). Creates the next occurrence when a repeating task moves to Done.</td></tr>
+  <tr><td>POST</td><td><code>/tasks/{id}/assignees</code></td><td>Replace the assignee set (ids[]), writing "added / removed" events</td></tr>
+  <tr><td>POST</td><td><code>/tasks/{id}/updates</code></td><td>Add comment</td></tr>
+  <tr><td>POST</td><td><code>/tasks/{id}/delete</code></td><td>Delete task (with confirm)</td></tr>
+  <tr><td>GET</td><td><code>/people</code></td><td><em>admin</em>: people dialog</td></tr>
+  <tr><td>POST</td><td><code>/people</code></td><td><em>admin</em>: add person, returns one-time temp password</td></tr>
+  <tr><td>POST</td><td><code>/people/{id}/remove</code></td><td><em>admin</em>: deactivate, drop from open tasks</td></tr>
+  <tr><td>POST</td><td><code>/people/{id}/reset</code></td><td><em>admin</em>: new temp password</td></tr>
+  <tr><td>POST</td><td><code>/people/{id}/admin</code></td><td><em>admin</em>: toggle admin flag (can't remove the last admin)</td></tr>
+  <tr><td>GET</td><td><code>/healthz</code></td><td>"ok", used to check it's running</td></tr>
+</table>
+</div>
+<p>All forms use POST with a CSRF token stored in the session and sent as an htmx header (<code>hx-headers</code> on <code>&lt;body&gt;</code>). Inputs are validated server-side: titles under 200 chars, valid dates, a known repeat value, and assignee ids that belong to active users.</p>
+
+<!-- ============================================================ -->
+<h2 id="auth">9. Login, admin and themes</h2>
+
+<h3>Login</h3>
+<p>Because everyone shares one Tailscale login, Tailscale can only prove that a request comes from a firm device, not which person sent it. The app needs its own sign-in so that comments, assignments and history show the right name.</p>
+<ul>
+  <li><strong>First run</strong>: <code>uv run simple-task-management create-admin</code> prompts for the first admin's name, username and password. It's the only command-line step anyone needs after install.</li>
+  <li><strong>Adding people</strong>: the admin enters a name and username in the People dialog and gets a temporary password to read out or WhatsApp to the person. On first sign-in, that person sets their own password.</li>
+  <li><strong>Forgotten password</strong>: the admin clicks "Reset password". There's no email flow.</li>
+  <li><strong>Shared office computer?</strong> "Sign out" is in the user menu. Sessions last 30 days per browser, so on a computer used by more than one person, each person should use their own Windows account or browser profile.</li>
+  <li><strong>Safety rails</strong>: there must always be at least one active admin, and an admin can't remove themselves.</li>
+  <li><strong>Password storage</strong>: <code>hashlib.scrypt</code> (n=2<sup>14</sup>, r=8, p=1) with a per-user random salt, stored as <code>scrypt$n$r$p$salt$hash</code>. It's in the standard library, so nothing extra to install.</li>
+  <li><strong>Brute force</strong>: the app is only reachable from the tailnet, but it still applies a small per-username delay after 5 failed attempts.</li>
+</ul>
+
+<h3>Themes</h3>
+<ul>
+  <li><strong>Three settings</strong>: <em>System</em> (follows the Windows light/dark setting, and is the default), <em>Light</em> and <em>Dark</em>. The control is in the user menu, as shown in the mockups.</li>
+  <li><strong>Stored on the user</strong> (<code>users.theme</code>), not in the browser, so a person sees their choice on any computer they sign in from.</li>
+  <li><strong>No flash on load</strong>: the server renders <code>&lt;html data-theme="dark"&gt;</code> (or no attribute for System) directly into the page, so the right colours appear from the first paint. Changing the setting flips the attribute immediately in JS and saves it with <code>POST /me/theme</code>.</li>
+  <li><strong>CSS</strong>: one set of variables (<code>--bg</code>, <code>--surface</code>, <code>--text</code>, <code>--muted</code>, <code>--border</code>, <code>--accent</code>, and status colours with their soft backgrounds). Light values sit on <code>:root</code>. Dark values are defined twice: under <code>@media (prefers-color-scheme: dark)</code> for System, guarded by <code>:root:not([data-theme="light"])</code>, and under <code>:root[data-theme="dark"]</code> for an explicit choice. The login screen follows System, since there's no user yet.</li>
+  <li><strong>Contrast</strong>: both palettes are checked against WCAG AA (4.5:1 for text) before shipping, especially the red, amber and blue chip text on their soft backgrounds.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="tailscale">10. Running it on Windows over Tailscale</h2>
+
+<h3>Network picture</h3>
+<div class="mermaid-box">
+<pre class="mermaid">
+flowchart LR
+  subgraph Tailnet["Firm's tailnet (one shared Tailscale account)"]
+    L1["Asha's desktop"]
+    L2["Ravi's desktop"]
+    L3["Meera's laptop"]
+    H["Windows 10 host: tasks<br/>tailscale serve → :8000"]
+  end
+  NET(("Public internet"))
+  L1 -- "https://tasks.your-tailnet.ts.net" --> H
+  L2 -- "https://tasks.your-tailnet.ts.net" --> H
+  L3 -- "https://tasks.your-tailnet.ts.net" --> H
+  NET -. "blocked: no open ports, no Funnel" .-x H
+</pre>
+<div class="cap">Staff can be in the office, at home or at a client site. As long as Tailscale is connected, the same bookmark works everywhere.</div>
+</div>
+
+<div class="callout warn">
+  <p><strong>Windows 10 security updates.</strong> Microsoft ended Windows 10 support in October 2025, and the consumer Extended Security Updates programme ran only to October 2026. Unless the firm has paid business ESU, this PC no longer gets security patches. The app limits exposure (it listens only on localhost and is reachable only over the tailnet), but the PC itself still browses the web and opens email. Recommendations: use it only as the server, keep Defender and Tailscale updated, and plan a move to Windows 11 or a small Linux box when convenient. Moving the app later is just copying one folder.</p>
+</div>
+
+<h3>One-time setup on the Windows host (done once by the most technical person)</h3>
+<p>The repo will ship <code>deploy\windows\install.ps1</code>, which runs steps 3–6. They're spelled out here so it's clear what it does.</p>
+<pre><code># 1. Tailscale (already installed) — make sure it keeps running when nobody is logged in:
+#    Tailscale tray icon → Preferences → "Run unattended" ✓
+#    Tailscale admin console → Machines → rename this PC to "tasks"
+#    Admin console → DNS → MagicDNS ✓ and HTTPS Certificates ✓
+#    Admin console → Machines → tasks → "Disable key expiry" (so the server never silently drops off)
+
+# 2. Power: Settings → System → Power &amp; sleep → Sleep: Never (on AC)
+#    Windows Update → Active hours: e.g. 8 am – 10 pm (reboots happen outside office time)
+
+# 3. Install uv (also installs Python 3.13 for the app) — in a normal PowerShell:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 4. Put the app in C:\TaskBoard (git clone, or unzip a release) and install dependencies
+cd C:\TaskBoard
+uv sync
+
+# 5. Create the first admin
+uv run simple-task-management create-admin
+
+# 6. Register the app to start at boot and restart if it crashes (Task Scheduler)
+#    (install.ps1 does this — shown for clarity)
+$uv       = "$env:USERPROFILE\.local\bin\uv.exe"
+$action   = New-ScheduledTaskAction -Execute $uv `
+              -Argument "run simple-task-management serve --host 127.0.0.1 --port 8000" `
+              -WorkingDirectory "C:\TaskBoard"
+$trigger  = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
+              -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "TaskBoard" -Action $action -Trigger $trigger -Settings $settings `
+  -User $env:USERNAME -Password (Read-Host "Windows password for $env:USERNAME") -RunLevel Limited
+Start-ScheduledTask -TaskName "TaskBoard"
+
+# 7. Publish it to the tailnet with HTTPS — in an *Administrator* PowerShell (persists across reboots)
+tailscale serve --bg 8000
+tailscale serve status        # shows https://tasks.&lt;your-tailnet&gt;.ts.net</code></pre>
+<p>Why Task Scheduler and not a third-party service wrapper (NSSM, WinSW)? It's built into Windows, needs nothing downloaded, can restart the app on crash, and with "run whether user is logged on or not" (which is what passing <code>-Password</code> sets up) it starts at boot before anyone signs in to the PC.</p>
+
+<h3>Helper scripts for non-technical upkeep</h3>
+<div class="table-scroll">
+<table>
+  <tr><th>File (double-click or right-click → Run with PowerShell)</th><th>What it does</th></tr>
+  <tr><td><code>deploy\windows\install.ps1</code></td><td>Steps 3–6 above, with prompts</td></tr>
+  <tr><td><code>deploy\windows\restart.ps1</code></td><td>Stops and starts the TaskBoard scheduled task</td></tr>
+  <tr><td><code>deploy\windows\update.ps1</code></td><td>Takes a backup, pulls the new version, runs <code>uv sync</code>, restarts</td></tr>
+  <tr><td><code>deploy\windows\status.ps1</code></td><td>Checks the scheduled task, <code>/healthz</code> and <code>tailscale serve status</code>, then prints OK or what's wrong</td></tr>
+</table>
+</div>
+
+<h3>What each staff member does</h3>
+<ol>
+  <li>Make sure Tailscale is running on their desktop. It already is.</li>
+  <li>Open <strong>https://tasks.&lt;your-tailnet&gt;.ts.net</strong> and bookmark it. Optionally pin it as an app with Chrome or Edge → ⋮ → "Install page as app", so it opens in its own window from the taskbar.</li>
+  <li>Sign in with the username and temporary password from the admin, then set your own password.</li>
+</ol>
+
+<div class="callout warn">
+  <p><strong>Don't use Tailscale Funnel</strong> (the feature that makes a tailnet service public on the internet). Task titles will contain client names and compliance details. Keeping the app tailnet-only means an attacker would need a device on the firm's tailnet before they could even reach the login page.</p>
+  <p><strong>With a shared Tailscale account, the account itself is the front door.</strong> Anyone who signs into it on any device joins the tailnet. Turn on two-factor authentication for that account, enable <em>Device approval</em> in the Tailscale admin console so new devices must be approved, and remove old devices from the Machines list. Per-person access rules (ACLs) aren't possible with one shared identity, which is another reason the app keeps its own passwords.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ops">11. Backups, updates, and keeping it running</h2>
+<ul>
+  <li><strong>Folders</strong>: the app lives in <code>C:\TaskBoard</code> and the live database in <code>C:\TaskBoard\data\tasks.db</code>. Keep the live database <em>outside</em> OneDrive or Google Drive, because sync tools can corrupt an open SQLite file.</li>
+  <li><strong>Nightly backup, built in.</strong> A background task in the app runs at 23:00 IST. It uses <code>sqlite3.Connection.backup()</code>, which is safe while the app is running, to write <code>tasks-YYYY-MM-DD.db</code> into <code>BACKUP_DIR</code>, and keeps the last 30. Point <code>BACKUP_DIR</code> at a OneDrive or Google Drive synced folder, for example <code>C:\Users\Office\OneDrive\TaskBoard-backups</code>, so there's an off-machine copy with no extra work. A backup is also taken before every update.</li>
+  <li><strong>Restore</strong>: run <code>restart.ps1 -Stop</code>, copy a backup over <code>data\tasks.db</code>, then run <code>restart.ps1</code>. This is written up in the README.</li>
+  <li><strong>Updating the app</strong>: run <code>update.ps1</code>. Schema migrations run automatically at startup, gated by <code>PRAGMA user_version</code>.</li>
+  <li><strong>Is it up?</strong> <code>status.ps1</code> on the host, or <code>/healthz</code> from any browser. Failures are logged to <code>C:\TaskBoard\logs\app.log</code>, rotated daily and kept for 14 days.</li>
+  <li><strong>After a power cut</strong>: if the PC's BIOS has an "AC power recovery: On" option, turn it on so the PC boots by itself. Task Scheduler and Tailscale (unattended) then bring everything back with no one at the keyboard.</li>
+  <li><strong>Config</strong> via a <code>.env</code> file in <code>C:\TaskBoard</code>: <code>DATA_DIR</code>, <code>BACKUP_DIR</code>, <code>LOG_DIR</code>, <code>TIMEZONE=Asia/Kolkata</code>, <code>BACKUP_HOUR</code>, <code>BACKUP_KEEP</code>. No secret key is needed: sessions are random tokens stored in the database, and each session carries its own CSRF token.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="layout">12. Project layout</h2>
+<pre><code>simple-task-management/
+├── pyproject.toml              # deps: fastapi, uvicorn, jinja2, python-multipart, tzdata
+├── README.md                   # setup + "for staff" one-pager + restore steps
+├── docs/design/plan.html       # this document
+├── deploy/windows/
+│   ├── install.ps1  update.ps1  restart.ps1  status.ps1
+├── src/simple_task_management/
+│   ├── __init__.py             # main(): CLI → serve | create-admin | backup
+│   ├── app.py                  # FastAPI app, routes
+│   ├── db.py                   # connect(), queries, migrations
+│   ├── schema.sql
+│   ├── auth.py                 # scrypt hashing, sessions, CSRF, require_user/admin
+│   ├── dates.py                # IST "today", summary buckets, chip labels
+│   ├── recurrence.py           # next_due(due, repeat, repeat_day), spawn_next()
+│   ├── backup.py               # nightly backup loop + retention
+│   ├── templates/
+│   │   ├── index.html          # the one page (login + app states, data-theme attr)
+│   │   ├── _summary.html  _board.html  _card.html
+│   │   ├── _panel.html    _thread.html  _new_task.html  _people.html  _user_menu.html
+│   └── static/
+│       ├── htmx.min.js         # vendored, pinned version (no CDN needed)
+│       ├── board.js            # drag-and-drop + theme switch (~80 lines)
+│       └── app.css             # light + dark variables, layout (~250 lines)
+└── tests/
+    ├── test_auth.py  test_tasks.py  test_assignees.py  test_summary.py
+    ├── test_recurrence.py  test_people.py  test_theme.py</code></pre>
+<p>Python dependencies are <code>fastapi</code>, <code>uvicorn</code>, <code>jinja2</code>, <code>python-multipart</code> and <code>tzdata</code>, plus <code>pytest</code> and <code>httpx</code> for development. Following your global convention, every module and function gets a docstring.</p>
+
+<!-- ============================================================ -->
+<h2 id="phases">13. Build plan</h2>
+<div class="mermaid-box">
+<pre class="mermaid">
+flowchart LR
+  P1["1 · Skeleton<br/>schema, db.py, CLI,<br/>create-admin, login"] --> P2["2 · Board<br/>tasks, multi-assignees,<br/>filter, drag-and-drop"]
+  P2 --> P3["3 · Thread + summary<br/>updates, auto events,<br/>coming-up strip"]
+  P3 --> P4["4 · Recurring<br/>repeat field, next_due,<br/>spawn on Done"]
+  P4 --> P5["5 · People + themes<br/>admin dialog, user menu,<br/>light/dark/system"]
+  P5 --> P6["6 · Ship on Windows<br/>backups, PS scripts,<br/>Task Scheduler, Serve"]
+  P6 --> P7["7 · Trial week"]
+</pre>
+</div>
+<div class="table-scroll">
+<table>
+  <tr><th>Phase</th><th>Done when</th><th>Rough effort</th></tr>
+  <tr><td>1 · Skeleton</td><td>Can create an admin from the CLI, sign in, and see an empty page. Session and CSRF tests pass.</td><td>½ day</td></tr>
+  <tr><td>2 · Board</td><td>Can create and edit tasks with several assignees, filter by person, and drag cards between columns in Chrome and Edge</td><td>1½ days</td></tr>
+  <tr><td>3 · Thread + summary</td><td>Comments and auto-events show in order. Overdue, today and next-3-days buckets are correct in IST (tests with a frozen "today").</td><td>1 day</td></tr>
+  <tr><td>4 · Recurring</td><td>Monthly, quarterly, yearly and weekly produce the right next dates, including month-end anchors and leap years. Re-closing never duplicates.</td><td>1 day</td></tr>
+  <tr><td>5 · People + themes</td><td>Admin can add, remove and reset people. The theme choice persists per user with no flash. Both themes pass AA contrast.</td><td>1 day</td></tr>
+  <tr><td>6 · Ship on Windows</td><td>Running on the host behind <code>tailscale serve</code>, survives a reboot with nobody logged in, first backup visible in the synced folder</td><td>½ day</td></tr>
+  <tr><td>7 · Trial</td><td>Three people have used it for a week, including one month-end</td><td>1 week elapsed</td></tr>
+</table>
+</div>
+
+<h3>Testing approach</h3>
+<ul>
+  <li><code>pytest</code> with FastAPI's <code>TestClient</code> against a temp SQLite file per test.</li>
+  <li><code>dates.py</code> and <code>recurrence.py</code> are pure functions that take <code>today</code> or <code>due</code> as parameters. They're tested over a table of cases: 31 Jan monthly, 29 Feb yearly, quarterly across a year boundary, weekly across a month boundary.</li>
+  <li>Assignee tests: "My tasks" and the summary include tasks shared with others, removing a person leaves co-assignees intact, and a task with zero assignees shows as Unassigned.</li>
+  <li>Permission tests: non-admins get 403 on <code>/people*</code>, removed users can't sign in, and the last admin can't be removed.</li>
+  <li>A manual check from a second PC over Tailscale, in both themes, before handing it over. A reboot test on the host with nobody signed in.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="later">14. Later versions</h2>
+<ul>
+  <li><strong>Mobile layout</strong> (planned next). Below about 700px, the columns become tabs, the "coming up" strip becomes count chips, and the task panel goes full-screen. Drag-and-drop is replaced by status buttons on touch devices. The phones would need the Tailscale app signed into the shared account. The server-rendered fragments don't change; this is mostly CSS plus a touch check in <code>board.js</code>.</li>
+  <li><strong>Client field</strong>: an optional "client" on a task, with a client filter in the top bar.</li>
+  <li><strong>Custom recurrence dates</strong> for irregular statutory calendars (e.g. TDS: 31 Jul, 31 Oct, 31 Jan, 31 May).</li>
+  <li><strong>Morning digest</strong>: a daily email or WhatsApp message to each person with their "coming up" list.</li>
+  <li><strong>Attachments</strong>: files stored on disk next to the database and linked from updates.</li>
+  <li><strong>Search</strong> across titles and updates using SQLite FTS5.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="questions">15. Open questions</h2>
+<ol>
+  <li>Which Windows account on the host should the app run under, and is OneDrive or Google Drive already signed in on that PC for backups?</li>
+  <li>Should "Done" tasks disappear from the board after 14 days, or a different window?</li>
+  <li>Is "next occurrence appears when the current one is done" right for the firm, or should, say, next month's GST task appear on a fixed date even if this month's is still open?</li>
+  <li>Does the firm have Windows 10 business ESU on the host, or is a move to Windows 11 or Linux on the cards (see the warning in §10)?</li>
+</ol>
+
+</div>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+
+  const root = document.documentElement;
+  const nodes = [...document.querySelectorAll("pre.mermaid")];
+  nodes.forEach(n => { n.dataset.src = n.textContent; });
+
+  function isDark() {
+    const t = root.getAttribute("data-theme");
+    return t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  async function render() {
+    mermaid.initialize({ startOnLoad: false, theme: isDark() ? "dark" : "neutral", securityLevel: "strict" });
+    nodes.forEach(n => { n.removeAttribute("data-processed"); n.textContent = n.dataset.src; });
+    await mermaid.run({ nodes });
+  }
+
+  function setTheme(choice) {
+    if (choice === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", choice);
+    document.querySelectorAll(".theme-toggle button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.set === choice)));
+    try { localStorage.setItem("plan-theme", choice); } catch (e) {}
+    render();
+  }
+
+  document.querySelectorAll(".theme-toggle button").forEach(b => b.addEventListener("click", () => setTheme(b.dataset.set)));
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!root.hasAttribute("data-theme")) render(); });
+
+  let saved = "system";
+  try { saved = localStorage.getItem("plan-theme") || "system"; } catch (e) {}
+  setTheme(saved);
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# App data (never commit the database, backups or logs)
+data/
+backups/
+logs/
+.env
+
+# Tooling
+.ruff_cache/
+.pytest_cache/
+.DS_Store
+
+# Throwaway demo data for local testing
+demo-*/

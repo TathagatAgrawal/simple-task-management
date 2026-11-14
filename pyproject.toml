@@ -1,0 +1,46 @@
+[project]
+name = "simple-task-management"
+version = "0.1.0"
+description = "A one-page task board for a small CA firm"
+readme = "README.md"
+authors = [
+    { name = "Tathagat Agrawal", email = "tathagat.2909@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.162.7",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.33",
+    "tzdata>=2026.6",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+simple-task-management = "simple_task_management:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "D", "RUF"]
+# Long lines are left to the formatter; the remaining ones are SQL and message strings.
+ignore = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

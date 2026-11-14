@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en"{% if user and user.theme != "system" %} data-theme="{{ user.theme }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5d50'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/app.css?v={{ version }}">
+  <script src="/static/htmx.min.js?v={{ version }}" defer></script>
+  <script src="/static/board.js?v={{ version }}" defer></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+<div id="banner" role="alert" hidden></div>
+
+{% if not user %}
+  <main class="center-card">
+    <h1 class="brand">Tasks</h1>
+    <form hx-post="/login" hx-target="#login-error" hx-swap="innerHTML" class="stack-form">
+      <label>Username <input name="username" autocomplete="username" required autofocus></label>
+      <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+      <p id="login-error" class="error" aria-live="polite"></p>
+      <button class="btn primary" type="submit">Sign in</button>
+      <p class="muted small">Stays signed in for 30 days on this computer.</p>
+    </form>
+  </main>
+
+{% elif user.must_change_password %}
+  <main class="center-card">
+    <h1 class="brand">Welcome, {{ user.name }}</h1>
+    <p class="muted">Please choose your own password to finish signing in.</p>
+    <form hx-post="/me/password" hx-swap="none" class="stack-form">
+      <label>New password <input name="new_password" type="password" autocomplete="new-password" minlength="8" required autofocus></label>
+      <label>Type it again <input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn primary" type="submit">Save and continue</button>
+    </form>
+    <button class="btn link small" hx-post="/logout">Sign out</button>
+  </main>
+
+{% else %}
+  <header class="topbar">
+    <span class="brand">Tasks</span>
+    <label class="muted" for="who">Showing</label>
+    <select id="who" name="who">
+      <option value="me">My tasks</option>
+      <option value="all">Everyone</option>
+      <option value="none">Unassigned</option>
+      <optgroup label="Person">
+        {% for p in people %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+      </optgroup>
+    </select>
+    <input type="hidden" id="done-days" name="done_days" value="14">
+    <span class="spacer"></span>
+    <button class="btn primary" type="button" onclick="tbOpenDialog('new-task')">+ New task</button>
+    <details class="usermenu">
+      <summary><span class="avatar tone-{{ user.id | avatar_tone }}">{{ user.name | initials }}</span> {{ user.name.split()[0] }} ▾</summary>
+      <div class="menu">
+        <div class="menu-item strong">{{ user.name }}{% if user.is_admin %} <span class="chip">admin</span>{% endif %}</div>
+        <div class="menu-item">
+          <div class="muted small">Theme</div>
+          <div class="seg" role="group" aria-label="Theme">
+            {% for t in ["system", "light", "dark"] %}
+            <button type="button" data-theme-choice="{{ t }}" aria-pressed="{{ 'true' if user.theme == t else 'false' }}"
+                    hx-post="/me/theme" hx-vals='{"theme": "{{ t }}"}' hx-swap="none"
+                    onclick="tbSetTheme('{{ t }}')">{{ t | capitalize }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="button" class="menu-item" onclick="tbOpenDialog('password-dialog')">Change password</button>
+        {% if user.is_admin %}<button type="button" class="menu-item" onclick="tbOpenDialog('people-dialog')">Manage people</button>{% endif %}
+        <button type="button" class="menu-item sep" hx-post="/logout" hx-swap="none">Sign out</button>
+      </div>
+    </details>
+  </header>
+
+  <div class="layout">
+    <main class="main-col">
+      <section id="summary" hx-get="/summary" hx-include="#who"
+               hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window"></section>
+      <section id="board" hx-get="/board" hx-include="#who, #done-days"
+               hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window"></section>
+    </main>
+    <aside id="panel"></aside>
+  </div>
+
+  <dialog id="new-task" class="modal">
+    <form hx-post="/tasks" hx-swap="none" class="stack-form"
+          hx-on::after-request="if (event.detail.elt === this && event.detail.successful) { this.reset(); this.closest('dialog').close(); }">
+      <h2>New task</h2>
+      <label>Title <input name="title" maxlength="200" required placeholder="e.g. GSTR-3B – Patel Traders"></label>
+      <fieldset>
+        <legend>Assign to (pick any)</legend>
+        <div class="chips">
+          {% for p in people %}
+          <label class="chip-toggle"><input type="checkbox" name="assignee_ids" value="{{ p.id }}"{% if p.id == user.id %} checked{% endif %}> {{ p.name }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="row">
+        <label>Due <input type="date" name="due" value="{{ today }}" required></label>
+        <label>Repeats
+          <select name="repeat">{% for value, label in repeat_labels.items() %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+        </label>
+      </div>
+      <label>Notes (optional) <textarea name="notes" rows="3" maxlength="5000"></textarea></label>
+      <div class="row end">
+        <button class="btn" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+        <button class="btn primary" type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="password-dialog" class="modal">
+    <form hx-post="/me/password" hx-target="#password-result" class="stack-form"
+          hx-on::after-request="if (event.detail.elt === this && event.detail.successful) this.reset()">
+      <h2>Change password</h2>
+      <label>Current password <input name="current_password" type="password" autocomplete="current-password" required></label>
+      <label>New password <input name="new_password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Type it again <input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <div id="password-result"></div>
+      <div class="row end">
+        <button class="btn" type="button" onclick="this.closest('dialog').close()">Close</button>
+        <button class="btn primary" type="submit">Change</button>
+      </div>
+    </form>
+  </dialog>
+
+  {% if user.is_admin %}
+  <dialog id="people-dialog" class="modal wide">
+    <div id="people" hx-get="/people" hx-trigger="people-open from:body"></div>
+    <div class="row end"><button class="btn" type="button" onclick="this.closest('dialog').close()">Done</button></div>
+  </dialog>
+  {% endif %}
+{% endif %}
+</body>
+</html>

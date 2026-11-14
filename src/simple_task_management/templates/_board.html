@@ -1,0 +1,17 @@
+<div class="board">
+  {% for status, label in status_labels.items() %}
+  <section class="col" data-status="{{ status }}" aria-label="{{ label }}">
+    <h3>
+      <span>{{ label }}{% if status == "done" and done_days < 1000 %} (last {{ done_days }} days){% endif %}</span>
+      <span>{{ columns[status] | length }}</span>
+    </h3>
+    <div class="cards">
+      {% for card in columns[status] %}{% include "_card.html" %}{% endfor %}
+      {% if not columns[status] %}<p class="empty">Nothing here. {% if status != "done" %}Drag a card here to move it.{% endif %}</p>{% endif %}
+    </div>
+    {% if status == "done" and done_days < 1000 %}
+    <button type="button" class="btn link small" onclick="tbShowOlder()">Show older</button>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
