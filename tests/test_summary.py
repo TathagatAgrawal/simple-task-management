@@ -41,3 +41,14 @@ def test_summary_endpoint_uses_ist_today(asha, users):
     html = asha.get("/summary").text
     assert "Due today" in html
     assert "Nothing overdue" in html
+
+
+def test_long_groups_collapse_after_three(asha, users):
+    """Groups with more than three tasks show the rest behind "Show N more"."""
+    for i in range(5):
+        new_task(asha, title=f"Late {i}", due="2026-11-10", assignee_ids=[users["asha"]])
+    html = asha.get("/summary").text
+    assert html.count('class="sum-item"') == 3
+    assert html.count('class="sum-item extra"') == 2
+    assert "Show 2 more" in html
+    assert "4 days late" in html

@@ -10,7 +10,8 @@
   <script src="/static/board.js?v={{ version }}" defer></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
-<div id="banner" role="alert" hidden></div>
+{% from "_icons.html" import icon %}
+<div id="banner" role="alert" popover="manual"></div>
 
 {% if not user %}
   <main class="center-card">
@@ -31,6 +32,7 @@
     <form hx-post="/me/password" hx-swap="none" class="stack-form">
       <label>New password <input name="new_password" type="password" autocomplete="new-password" minlength="8" required autofocus></label>
       <label>Type it again <input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <p class="error form-error" aria-live="polite"></p>
       <button class="btn primary" type="submit">Save and continue</button>
     </form>
     <button class="btn link small" hx-post="/logout">Sign out</button>
@@ -52,7 +54,7 @@
     <span class="spacer"></span>
     <button class="btn primary" type="button" onclick="tbOpenDialog('new-task')">+ New task</button>
     <details class="usermenu">
-      <summary><span class="avatar tone-{{ user.id | avatar_tone }}">{{ user.name | initials }}</span> {{ user.name.split()[0] }} ▾</summary>
+      <summary><span class="avatar tone-{{ user.id | avatar_tone }}">{{ user.name | initials }}</span> {{ user.name.split()[0] }} {{ icon("chevron", 14) }}</summary>
       <div class="menu">
         <div class="menu-item strong">{{ user.name }}{% if user.is_admin %} <span class="chip">admin</span>{% endif %}</div>
         <div class="menu-item">
@@ -72,15 +74,14 @@
     </details>
   </header>
 
-  <div class="layout">
-    <main class="main-col">
+  <main>
       <section id="summary" hx-get="/summary" hx-include="#who"
                hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window"></section>
       <section id="board" hx-get="/board" hx-include="#who, #done-days"
                hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window"></section>
-    </main>
-    <aside id="panel"></aside>
-  </div>
+  </main>
+
+  <dialog id="task-dialog" class="drawer" aria-label="Task"><div id="panel"></div></dialog>
 
   <dialog id="new-task" class="modal">
     <form hx-post="/tasks" hx-swap="none" class="stack-form"
@@ -102,6 +103,7 @@
         </label>
       </div>
       <label>Notes (optional) <textarea name="notes" rows="3" maxlength="5000"></textarea></label>
+      <p class="error form-error" aria-live="polite"></p>
       <div class="row end">
         <button class="btn" type="button" onclick="this.closest('dialog').close()">Cancel</button>
         <button class="btn primary" type="submit">Create</button>
@@ -117,6 +119,7 @@
       <label>New password <input name="new_password" type="password" autocomplete="new-password" minlength="8" required></label>
       <label>Type it again <input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required></label>
       <div id="password-result"></div>
+      <p class="error form-error" aria-live="polite"></p>
       <div class="row end">
         <button class="btn" type="button" onclick="this.closest('dialog').close()">Close</button>
         <button class="btn primary" type="submit">Change</button>

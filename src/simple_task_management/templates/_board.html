@@ -1,3 +1,7 @@
+{% set total = columns.values() | map("length") | sum %}
+{% if total == 0 and who == "me" %}
+<p class="board-hint">Nothing is assigned to you yet. Choose <strong>Everyone</strong> under “Showing” to see all the firm's tasks, or click <strong>+ New task</strong>.</p>
+{% endif %}
 <div class="board">
   {% for status, label in status_labels.items() %}
   <section class="col" data-status="{{ status }}" aria-label="{{ label }}">
@@ -7,7 +11,7 @@
     </h3>
     <div class="cards">
       {% for card in columns[status] %}{% include "_card.html" %}{% endfor %}
-      {% if not columns[status] %}<p class="empty">Nothing here. {% if status != "done" %}Drag a card here to move it.{% endif %}</p>{% endif %}
+      {% if not columns[status] %}<p class="empty">Nothing here. {% if status != "done" and total %}Drag a card here to move it.{% endif %}</p>{% endif %}
     </div>
     {% if status == "done" and done_days < 1000 %}
     <button type="button" class="btn link small" onclick="tbShowOlder()">Show older</button>

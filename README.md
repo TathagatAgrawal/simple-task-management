@@ -4,7 +4,7 @@ A one-page task board for a three-person CA firm. Tasks have one or more assigne
 
 It's a small FastAPI + SQLite app with server-rendered HTML and htmx — no build step, no Node, no separate database server. It runs on one always-on Windows PC and staff reach it privately over Tailscale.
 
-The design rationale, diagrams and mockups are in [`docs/design/plan.html`](docs/design/plan.html) (open it in a browser).
+**Developers and AI agents: start at [`docs/README.md`](docs/README.md)** for the structure, design philosophy and conventions. The original design plan, with diagrams and mockups, is [`docs/design/plan.html`](docs/design/plan.html) (open it in a browser).
 
 ## Try it on your Mac
 
@@ -63,7 +63,7 @@ CI (GitHub Actions, `.github/workflows/ci.yml`) runs on every push and pull requ
 | `backup.py` | Online SQLite backups, retention, the nightly loop |
 | `db.py`, `schema.sql` | Connection pragmas and migrations (`PRAGMA user_version`) |
 | `__init__.py` | The CLI: `serve`, `create-admin`, `set-password`, `backup`, `seed-demo` |
-| `templates/`, `static/` | Jinja templates, CSS (light/dark variables), htmx, and ~150 lines of JS for drag-and-drop and the panel |
+| `templates/`, `static/` | Jinja templates, CSS (light/dark variables), htmx, and ~220 lines of JS for drag-and-drop, the task drawer and dialogs |
 
 ## Deploying to the firm's Windows PC
 

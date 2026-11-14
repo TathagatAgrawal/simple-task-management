@@ -1,5 +1,7 @@
 """Tests for creating, editing, moving and commenting on tasks, including recurrence."""
 
+import json
+
 from conftest import TODAY, new_task
 
 from simple_task_management import store
@@ -30,6 +32,33 @@ def test_create_task_appears_on_board(asha, conn, users):
         task_id,
         14,
     )
+
+
+def test_create_task_opens_it(asha, conn):
+    """Creating a task tells the page to open it, so it's visible whatever the filter."""
+    r = asha.post("/tasks", data={"title": "For Ravi", "due": TODAY.isoformat()})
+    task_id = conn.execute("SELECT id FROM tasks").fetchone()[0]
+    trigger = json.loads(r.headers["HX-Trigger"])
+    assert trigger == {"tasks-changed": None, "task-created": {"id": task_id}}
+
+
+def test_apostrophes_are_not_mistaken_for_task_links(asha, conn):
+    """An escaped apostrophe (&#39;) must not turn into a "#39" task link."""
+    new_task(asha)
+    (task_id,) = _ids(conn)
+    asha.post(f"/tasks/{task_id}/updates", data={"body": "I'll file it, see #7"})
+    panel = asha.get(f"/tasks/{task_id}").text
+    assert "I&#39;ll file it, see" in panel
+    assert 'hx-get="/tasks/39"' not in panel
+    assert 'hx-get="/tasks/7"' in panel
+
+
+def test_empty_my_tasks_board_explains_where_tasks_are(ravi):
+    """A new person with nothing assigned is pointed at the Everyone filter."""
+    html = ravi.get("/board?who=me").text
+    assert "Nothing is assigned to you yet" in html
+    assert "Drag a card here" not in html
+    assert "Nothing is assigned" not in ravi.get("/board?who=all").text
 
 
 def test_create_task_validation(asha):
@@ -137,7 +166,7 @@ def test_comments_and_panel(asha, ravi, conn):
     assert "Ravi Kumar" in panel and "Form 24Q" in panel
     assert 'hx-get="/tasks/1"' in panel
     assert "&lt;b&gt;" in panel  # comment HTML is escaped
-    assert "💬 1" in asha.get("/board?who=all").text
+    assert 'title="1 comment"' in asha.get("/board?who=all").text
 
 
 def test_delete_closes_panel(asha, conn):

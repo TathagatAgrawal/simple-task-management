@@ -6,13 +6,14 @@ and the open task panel listen for that event and re-fetch themselves.
 
 import asyncio
 import contextlib
+import hashlib
 import hmac
+import json
 import re
 import sqlite3
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
-from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 
@@ -48,13 +49,32 @@ def avatar_tone(user_id: int) -> str:
 
 def link_tasks(text: str) -> Markup:
     """Escape text and turn ``#42`` references into links that open that task."""
-    safe = str(escape(text))
-    return Markup(
-        _TASK_REF.sub(
-            r'<a href="#task-\1" hx-get="/tasks/\1" hx-target="#panel" hx-swap="innerHTML">#\1</a>',
-            safe,
+    # Match on the raw text and escape each piece separately; matching after escaping would
+    # turn entities such as &#39; (an apostrophe) into bogus links.
+    parts: list[str] = []
+    last = 0
+    for match in _TASK_REF.finditer(text):
+        task_id = match.group(1)
+        parts.append(str(escape(text[last : match.start()])))
+        parts.append(
+            f'<a href="#task-{task_id}" hx-get="/tasks/{task_id}" hx-target="#panel" '
+            f'hx-swap="innerHTML">#{task_id}</a>'
         )
-    )
+        last = match.end()
+    parts.append(str(escape(text[last:])))
+    return Markup("".join(parts))
+
+
+def static_fingerprint() -> str:
+    """Short hash of the static files, used as a cache-buster.
+
+    Browsers then fetch new CSS/JS after an update even if the package version wasn't bumped.
+    """
+    digest = hashlib.sha256()
+    for path in sorted((HERE / "static").glob("*")):
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:10]
 
 
 def _templates() -> Jinja2Templates:
@@ -64,7 +84,7 @@ def _templates() -> Jinja2Templates:
     env.filters["initials"] = initials
     env.filters["avatar_tone"] = avatar_tone
     env.filters["link_tasks"] = link_tasks
-    env.globals["version"] = version("simple-task-management")
+    env.globals["version"] = static_fingerprint()
     env.globals["repeat_labels"] = REPEAT_LABELS
     env.globals["status_labels"] = store.STATUS_LABELS
     return templates
@@ -244,7 +264,7 @@ def create_app(
         """The overdue / today / next-3-days strip."""
         buckets = store.summary(conn, who=who, me=user["id"], today=today())
         return render(
-            request, "_summary.html", buckets=buckets, today=today(), short_date=dates.short_date
+            request, "_summary.html", buckets=buckets, today=today(), due_label=dates.due_label
         )
 
     @app.get("/board", response_class=HTMLResponse)
@@ -255,7 +275,7 @@ def create_app(
         columns = store.board(
             conn, who=who, me=user["id"], today=today(), tz=settings.tz, done_days=done_days
         )
-        return render(request, "_board.html", columns=columns, done_days=done_days)
+        return render(request, "_board.html", columns=columns, done_days=done_days, who=who)
 
     # ------------------------------------------------------------ tasks
 
@@ -270,10 +290,12 @@ def create_app(
         assignee_ids: Annotated[list[int] | None, Form()] = None,
     ) -> Response:
         """Create a task from the New task dialog."""
-        store.create_task(
+        task_id = store.create_task(
             conn, user, title=title, due=due, notes=notes, repeat=repeat, assignee_ids=assignee_ids
         )
-        return Response(status_code=204, headers=TASKS_CHANGED)
+        # Open the new task in the panel, so it's visible even if the current filter hides it.
+        trigger = json.dumps({"tasks-changed": None, "task-created": {"id": task_id}})
+        return Response(status_code=204, headers={"HX-Trigger": trigger})
 
     @app.get("/tasks/{task_id}", response_class=HTMLResponse)
     def task_panel(request: Request, conn: Conn, user: User, task_id: int) -> HTMLResponse:

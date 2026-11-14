@@ -108,8 +108,26 @@ def create_user(
         raise UserError("Please enter a name (up to 60 characters).")
     if not USERNAME_RE.match(username):
         raise UserError("Usernames are 2-32 characters: lowercase letters, digits, . _ or -.")
-    if conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+    existing = conn.execute(
+        "SELECT id, is_active FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    if existing and existing["is_active"]:
         raise UserError(f"The username “{username}” is already taken.")
+    if existing:
+        # Someone removed earlier is coming back: restore their account (and history).
+        with conn:
+            conn.execute(
+                """UPDATE users SET name = ?, password_hash = ?, is_admin = ?, is_active = 1,
+                                    must_change_password = ? WHERE id = ?""",
+                (
+                    name,
+                    auth.hash_password(password),
+                    int(is_admin),
+                    int(must_change_password),
+                    existing["id"],
+                ),
+            )
+        return existing["id"]
     with conn:
         cur = conn.execute(
             """INSERT INTO users (name, username, password_hash, is_admin, must_change_password,

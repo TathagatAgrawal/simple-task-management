@@ -60,3 +60,16 @@ def test_reset_password_signs_person_out(app, asha, users):
     r = asha.post(f"/people/{users['meera']}/reset")
     assert "<code>" in r.text
     assert meera.get("/board").status_code == 401
+
+
+def test_removed_person_can_be_added_back(app, asha, conn, users):
+    """Re-adding a removed username restores that person instead of failing."""
+    asha.post(f"/people/{users['ravi']}/remove")
+    r = asha.post("/people", data={"name": "Ravi K", "username": "ravi"})
+    assert r.status_code == 200
+    row = conn.execute(
+        "SELECT id, name, is_active, must_change_password FROM users WHERE username = 'ravi'"
+    ).fetchone()
+    assert tuple(row) == (users["ravi"], "Ravi K", 1, 1)
+    temp = re.search(r"<code>([^<]+)</code>", r.text).group(1)
+    assert "choose your own password" in sign_in(app, "ravi", temp).get("/").text

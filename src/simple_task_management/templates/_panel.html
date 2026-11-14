@@ -1,84 +1,100 @@
+{% from "_icons.html" import icon %}
+{# The task view, shown in a drawer over the board. Each field saves itself on change. #}
 <div class="panel" data-task-id="{{ task.id }}"
      hx-get="/tasks/{{ task.id }}" hx-swap="outerHTML" hx-target="this"
      hx-trigger="tasks-changed from:body, every 60s [tbPanelIdle()]">
-  <div class="panel-head">
-    <span class="muted small">#{{ task.id }}</span>
-    <button type="button" class="btn icon" onclick="tbClosePanel()" aria-label="Close">✕</button>
+  <header class="panel-head">
+    <textarea class="title-input" name="title" rows="1" maxlength="200" required aria-label="Title"
+              hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none"
+              onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.blur(); }">{{ task.title }}</textarea>
+    <span class="muted task-number">#{{ task.id }}</span>
+    <button type="button" class="btn icon" onclick="tbClosePanel()" aria-label="Close" autofocus>{{ icon("close", 18) }}</button>
+  </header>
+
+  <div class="panel-body">
+    <section class="panel-main">
+      <h3 class="section-title">Notes</h3>
+      <textarea class="notes-input" name="notes" rows="2" maxlength="5000" placeholder="Add notes…"
+                hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none">{{ task.notes }}</textarea>
+
+      <h3 class="section-title">Updates</h3>
+      <div class="thread-scroll">
+      <ul class="thread">
+        {% for u in updates %}
+        {% if u.kind == "comment" %}
+        <li class="comment">
+          <span class="avatar tone-{{ u.author_id | avatar_tone }}">{{ u.author_name | initials }}</span>
+          <div><span class="who">{{ u.author_name }}</span> <span class="when">{{ u.when }}</span>
+            <div class="body">{{ u.body | link_tasks }}</div></div>
+        </li>
+        {% else %}
+        <li class="event">{% if u.author_name %}{{ u.author_name }} {% endif %}{{ u.body | link_tasks }} · {{ u.when }}</li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+      </div>
+
+      <form class="composer" hx-post="/tasks/{{ task.id }}/updates" hx-swap="none"
+            hx-on::after-request="if (event.detail.elt === this && event.detail.successful) this.reset()">
+        <textarea name="body" rows="3" maxlength="5000" placeholder="Write an update… (Ctrl/⌘ + Enter to post)" required
+                  onkeydown="if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') this.form.requestSubmit()"></textarea>
+        <div class="row end"><button class="btn primary" type="submit">Post update</button></div>
+      </form>
+    </section>
+
+    <aside class="panel-side">
+      <div class="side-section">
+        <div class="side-label">Status</div>
+        <div class="seg status-seg" role="group" aria-label="Status">
+          {% for status, label in status_labels.items() %}
+          <button type="button" hx-post="/tasks/{{ task.id }}/move" hx-vals='{"status": "{{ status }}"}' hx-swap="none"
+                  aria-pressed="{{ 'true' if task.status == status else 'false' }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <form class="side-section" hx-post="/tasks/{{ task.id }}/assignees" hx-trigger="change" hx-swap="none">
+        <div class="side-label">Assignees</div>
+        <div class="chips">
+          {% for p in people %}
+          <label class="chip-toggle"><input type="checkbox" name="assignee_ids" value="{{ p.id }}"{% if p.id in assigned %} checked{% endif %}>{{ p.name }}</label>
+          {% endfor %}
+        </div>
+      </form>
+
+      <div class="side-section">
+        <label class="side-label" for="due-{{ task.id }}">Due</label>
+        <div class="row tight">
+          <input type="date" id="due-{{ task.id }}" name="due" value="{{ task.due_date }}" required
+                 hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none">
+          {% if due_label %}<span class="chip {{ due_tone }}">{{ due_label }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="side-section">
+        <label class="side-label" for="repeat-{{ task.id }}">Repeats</label>
+        <select id="repeat-{{ task.id }}" name="repeat" hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none">
+          {% for value, label in repeat_labels.items() %}
+          <option value="{{ value }}"{% if task.repeat == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if series %}
+        <details class="series">
+          <summary class="muted small">Other occurrences ({{ series | length }})</summary>
+          <ul>
+            {% for s in series %}
+            <li><a href="#task-{{ s.id }}" hx-get="/tasks/{{ s.id }}" hx-target="#panel" hx-swap="innerHTML">{{ short_date(date.fromisoformat(s.due_date), today) }}</a>
+              <span class="muted small">· {{ status_labels[s.status] }}</span></li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+      </div>
+
+      <div class="side-section">
+        <button type="button" class="btn link danger small" hx-post="/tasks/{{ task.id }}/delete" hx-swap="none"
+                hx-confirm="Delete this task and all its updates? This can't be undone.">Delete task</button>
+      </div>
+    </aside>
   </div>
-
-  <form class="fields" hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none">
-    <input class="title-input" name="title" value="{{ task.title }}" maxlength="200" required aria-label="Title">
-
-    <span class="label">Status</span>
-    <span class="status-buttons">
-      {% for status, label in status_labels.items() %}
-      <button type="button" class="btn{% if task.status == status %} primary{% endif %}"
-              hx-post="/tasks/{{ task.id }}/move" hx-vals='{"status": "{{ status }}"}' hx-swap="none"
-              {% if task.status == status %}aria-pressed="true"{% endif %}>{{ label }}</button>
-      {% endfor %}
-    </span>
-
-    <span class="label">Due</span>
-    <span class="row tight">
-      <input type="date" name="due" value="{{ task.due_date }}" required>
-      {% if due_label %}<span class="chip {{ due_tone }}">{{ due_label }}</span>{% endif %}
-    </span>
-
-    <span class="label">Repeats</span>
-    <select name="repeat">
-      {% for value, label in repeat_labels.items() %}
-      <option value="{{ value }}"{% if task.repeat == value %} selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-
-    <span class="label">Notes</span>
-    <textarea name="notes" rows="3" maxlength="5000" placeholder="Add notes…">{{ task.notes }}</textarea>
-  </form>
-
-  <form class="fields" hx-post="/tasks/{{ task.id }}/assignees" hx-trigger="change" hx-swap="none">
-    <span class="label">Assignees</span>
-    <span class="chips">
-      {% for p in people %}
-      <label class="chip-toggle"><input type="checkbox" name="assignee_ids" value="{{ p.id }}"{% if p.id in assigned %} checked{% endif %}> {{ p.name }}</label>
-      {% endfor %}
-    </span>
-  </form>
-
-  {% if series %}
-  <details class="series">
-    <summary class="muted small">Other occurrences ({{ series | length }})</summary>
-    <ul>
-      {% for s in series %}
-      <li><a href="#task-{{ s.id }}" hx-get="/tasks/{{ s.id }}" hx-target="#panel" hx-swap="innerHTML">{{ short_date(date.fromisoformat(s.due_date), today) }}</a>
-        <span class="muted small">· {{ status_labels[s.status] }}</span></li>
-      {% endfor %}
-    </ul>
-  </details>
-  {% endif %}
-
-  <h3 class="thread-title">Updates</h3>
-  <ul class="thread">
-    {% for u in updates %}
-    {% if u.kind == "comment" %}
-    <li class="comment">
-      <span class="avatar tone-{{ u.author_id | avatar_tone }}">{{ u.author_name | initials }}</span>
-      <div><span class="who">{{ u.author_name }}</span> <span class="when">{{ u.when }}</span>
-        <div class="body">{{ u.body | link_tasks }}</div></div>
-    </li>
-    {% else %}
-    <li class="event">{% if u.author_name %}{{ u.author_name }} {% endif %}{{ u.body | link_tasks }} · {{ u.when }}</li>
-    {% endif %}
-    {% endfor %}
-  </ul>
-
-  <form class="composer" hx-post="/tasks/{{ task.id }}/updates" hx-swap="none"
-        hx-on::after-request="if (event.detail.elt === this && event.detail.successful) this.reset()">
-    <textarea name="body" rows="3" maxlength="5000" placeholder="Write an update…" required
-              onkeydown="if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') this.form.requestSubmit()"></textarea>
-    <div class="row between">
-      <button type="button" class="btn link danger small" hx-post="/tasks/{{ task.id }}/delete" hx-swap="none"
-              hx-confirm="Delete this task and all its updates? This can't be undone.">Delete task</button>
-      <button class="btn primary" type="submit">Post update</button>
-    </div>
-  </form>
 </div>
