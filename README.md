@@ -99,6 +99,10 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\restart.ps1
 
 If the only admin forgets their password: `uv run simple-task-management set-password <username>` on the host PC.
 
+## User manual
+
+The app includes an illustrated manual with annotated screenshots of every screen and a typical day's workflow. Open it from **Help** in the top bar, from "How to use this app" on the sign-in screen, or directly at `/help`. It's readable without signing in.
+
 ## For the staff
 
 1. Make sure Tailscale is running on your computer.

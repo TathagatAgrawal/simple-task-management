@@ -21,7 +21,8 @@
       <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
       <p id="login-error" class="error" aria-live="polite"></p>
       <button class="btn primary" type="submit">Sign in</button>
-      <p class="muted small">Stays signed in for 30 days on this computer.</p>
+      <p class="muted small">Stays signed in for 30 days on this computer.<br>
+        <a href="/help" target="_blank" rel="noopener">How to use this app</a></p>
     </form>
   </main>
 
@@ -52,6 +53,7 @@
     </select>
     <input type="hidden" id="done-days" name="done_days" value="14">
     <span class="spacer"></span>
+    <a class="help-link" href="/help" target="_blank" rel="noopener">{{ icon("help", 16) }} Help</a>
     <button class="btn primary" type="button" onclick="tbOpenDialog('new-task')">+ New task</button>
     <details class="usermenu">
       <summary><span class="avatar tone-{{ user.id | avatar_tone }}">{{ user.name | initials }}</span> {{ user.name.split()[0] }} {{ icon("chevron", 14) }}</summary>

@@ -71,8 +71,9 @@ def static_fingerprint() -> str:
     Browsers then fetch new CSS/JS after an update even if the package version wasn't bumped.
     """
     digest = hashlib.sha256()
-    for path in sorted((HERE / "static").glob("*")):
-        digest.update(path.name.encode())
+    static = HERE / "static"
+    for path in sorted(p for p in static.rglob("*") if p.is_file()):
+        digest.update(path.relative_to(static).as_posix().encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()[:10]
 
@@ -441,6 +442,12 @@ def create_app(
         target = store.get_user(conn, user_id)
         verb = "is now an admin" if make_admin else "is no longer an admin"
         return people_fragment(request, conn, admin, f"{target['name']} {verb}.")
+
+    @app.get("/help", response_class=HTMLResponse)
+    def help_page(request: Request, conn: Conn) -> HTMLResponse:
+        """The user manual. Open to everyone, so it can be read before signing in."""
+        found = auth.session_user(conn, request.cookies.get(auth.COOKIE_NAME))
+        return render(request, "help.html", user=found[0] if found else None)
 
     @app.get("/healthz", response_class=PlainTextResponse)
     def healthz(conn: Conn) -> str:

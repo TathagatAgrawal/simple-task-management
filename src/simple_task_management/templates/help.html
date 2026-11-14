@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en"{% if user and user.theme != "system" %} data-theme="{{ user.theme }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks – User manual</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5d50'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/app.css?v={{ version }}">
+  <style>
+    body { font-size: 15px; line-height: 1.6; }
+    .help-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .help-top a.back { margin-left: auto; }
+    .help-wrap { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 32px 24px 96px; }
+    .toc { position: sticky; top: 76px; align-self: start; font-size: 14px; }
+    .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+    .toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+    .toc a:hover { background: var(--surface-2); color: var(--text); }
+    .content { max-width: 860px; }
+    .content h1 { font-size: 30px; line-height: 1.2; margin-bottom: 8px; }
+    .content h2 { font-size: 22px; margin: 56px 0 10px; padding-top: 12px; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
+    .content h3 { font-size: 17px; margin: 28px 0 6px; }
+    .content p, .content li { max-width: 72ch; }
+    .lede { font-size: 17px; color: var(--muted); }
+    kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--surface); }
+    .tip { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .tip p { margin: 0; }
+    .steps { counter-reset: step; list-style: none; padding: 0; display: grid; gap: 10px; }
+    .steps > li { counter-increment: step; position: relative; padding-left: 38px; }
+    .steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+
+    /* Annotated screenshots: numbered pins and highlight boxes drawn over the image. */
+    figure.shot { margin: 18px 0 8px; }
+    .shot-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); background: #fff; }
+    .shot-frame img { display: block; width: 100%; height: auto; }
+    .shot-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .shot-frame .hl { fill: rgba(217, 119, 6, .08); stroke: #d97706; stroke-width: 3; vector-effect: non-scaling-stroke; }
+    .shot-frame .arrow { stroke: #d97706; stroke-width: 4; fill: none; vector-effect: non-scaling-stroke; stroke-dasharray: 10 6; }
+    .shot-frame .arrowhead { fill: #d97706; }
+    .pin {
+      position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%;
+      background: #d97706; color: #fff; font: 700 13px/26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center; box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(0, 0, 0, .35);
+    }
+    figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .legend { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+    .legend li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; }
+    .legend .n { width: 22px; height: 22px; margin-top: 2px; border-radius: 50%; background: #d97706; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; }
+    .figs-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+    @media (max-width: 900px) {
+      .help-wrap { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .figs-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+{#
+  figure(): an annotated screenshot.
+  Coordinates are in the screenshot's own pixels (w x h), so they can be read straight off the image.
+    pins:   [(number, x, y), ...]
+    boxes:  [(x, y, width, height), ...]
+    arrows: [(x1, y1, x2, y2), ...]
+#}
+{% macro figure(name, w, h, alt, pins=[], boxes=[], arrows=[], width=None, caption="") -%}
+<figure class="shot"{% if width %} style="max-width: {{ width }}px"{% endif %}>
+  <div class="shot-frame">
+    <img src="/static/help/{{ name }}.jpg?v={{ version }}" width="{{ w }}" height="{{ h }}" alt="{{ alt }}" loading="lazy">
+    {% if boxes or arrows %}
+    <svg viewBox="0 0 {{ w }} {{ h }}" preserveAspectRatio="none" aria-hidden="true">
+      <defs><marker id="head-{{ name }}" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      {% for x, y, bw, bh in boxes %}<rect class="hl" x="{{ x }}" y="{{ y }}" width="{{ bw }}" height="{{ bh }}" rx="10"/>{% endfor %}
+      {% for x1, y1, x2, y2 in arrows %}<line class="arrow" x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}" marker-end="url(#head-{{ name }})"/>{% endfor %}
+    </svg>
+    {% endif %}
+    {% for n, x, y in pins %}<span class="pin" style="left: {{ '%.2f' | format(x / w * 100) }}%; top: {{ '%.2f' | format(y / h * 100) }}%">{{ n }}</span>{% endfor %}
+  </div>
+  {% if caption %}<figcaption>{{ caption }}</figcaption>{% endif %}
+</figure>
+{%- endmacro %}
+
+{% macro legend(items) -%}
+<ol class="legend">
+  {% for n, text in items %}<li><span class="n">{{ n }}</span><span>{{ text | safe }}</span></li>{% endfor %}
+</ol>
+{%- endmacro %}
+
+<header class="help-top">
+  <span class="brand">Tasks</span><span class="muted">User manual</span>
+  <a class="back" href="/">{{ "Back to the board" if user else "Go to sign in" }}</a>
+</header>
+
+<div class="help-wrap">
+  <nav class="toc" aria-label="Contents">
+    <ol>
+      <li><a href="#signing-in">Signing in</a></li>
+      <li><a href="#board">The board at a glance</a></li>
+      <li><a href="#typical-day">A typical day</a></li>
+      <li><a href="#cards">Reading a card</a></li>
+      <li><a href="#new-task">Creating a task</a></li>
+      <li><a href="#task-view">Working on a task</a></li>
+      <li><a href="#moving">Moving a task along</a></li>
+      <li><a href="#recurring">Recurring tasks</a></li>
+      <li><a href="#finding">Finding tasks</a></li>
+      <li><a href="#settings">Theme, password, sign out</a></li>
+      <li><a href="#people">For admins: people</a></li>
+      <li><a href="#faq">Problems and questions</a></li>
+    </ol>
+  </nav>
+
+  <main class="content">
+    <h1>How to use Tasks</h1>
+    <p class="lede">Tasks is the firm's shared to-do board. Every piece of work is a card with an owner, a due date and a running log of updates, so everyone can see what's due and where things stand without asking.</p>
+
+    <!-- ================================================================== -->
+    <h2 id="signing-in">Signing in</h2>
+    <p>Make sure <strong>Tailscale is connected</strong> on your computer, then open the bookmark for Tasks.</p>
+    <div class="figs-2">
+      <div>
+        {{ figure("login", 760, 820, "The sign-in screen",
+                  pins=[(1, 692, 247), (2, 692, 379), (3, 692, 514), (4, 345, 645)]) }}
+        {{ legend([(1, "Your <strong>username</strong>, e.g. <em>ravi</em>. Capitals don't matter."),
+                   (2, "Your <strong>password</strong>."),
+                   (3, "<strong>Sign in.</strong> You stay signed in for 30 days on that computer."),
+                   (4, "Opens this manual, even before you've signed in.")]) }}
+      </div>
+      <div>
+        {{ figure("first-sign-in", 760, 830, "Choosing your own password on first sign-in",
+                  pins=[(1, 692, 408), (2, 692, 540), (3, 692, 627)]) }}
+        {{ legend([(1, "The <strong>first time</strong> you sign in (with the temporary password the admin gave you), choose your own password, at least 8 characters."),
+                   (2, "Type it again to make sure there's no typo."),
+                   (3, "<strong>Save and continue</strong> takes you to the board.")]) }}
+      </div>
+    </div>
+    <div class="tip"><p><strong>Forgot your password?</strong> Ask the admin to reset it. They'll give you a new temporary password, and you'll choose your own again when you sign in.</p></div>
+
+    <!-- ================================================================== -->
+    <h2 id="board">The board at a glance</h2>
+    <p>Everything happens on this one page.</p>
+    {{ figure("board", 1512, 802, "The main board",
+              pins=[(1, 300, 27), (2, 1188, 27), (3, 1337, 62), (4, 1445, 58), (5, 745, 62), (6, 142, 213), (7, 745, 246), (8, 492, 300), (9, 1312, 379)],
+              boxes=[(20, 70, 1472, 167), (20, 255, 1472, 535), (31, 293, 461, 72)],
+              arrows=[(420, 345, 690, 445)]) }}
+    {{ legend([(1, "<strong>Showing</strong>: whose tasks are on the board. It starts on <em>My tasks</em>; switch to <em>Everyone</em> for the whole firm. See <a href='#finding'>Finding tasks</a>."),
+               (2, "<strong>Help</strong> opens this manual in a new tab."),
+               (3, "<strong>+ New task</strong>. See <a href='#new-task'>Creating a task</a>."),
+               (4, "<strong>Your menu</strong>: theme (light or dark), change password, sign out, and <em>Manage people</em> for admins."),
+               (5, "<strong>Coming up</strong>: what's <span style='color:var(--red)'>overdue</span>, due today, and due in the next 3 days. Click any row to open that task."),
+               (6, "When a group has more than 3 tasks, <strong>Show more</strong> reveals the rest."),
+               (7, "<strong>The board</strong>: three columns, <em>To do</em>, <em>Doing</em> and <em>Done</em>. Each column is sorted by due date, soonest first."),
+               (8, "<strong>A card</strong> is one task. Click it to open it, or drag it to another column (dashed arrow) to change its status."),
+               (9, "<em>Done</em> shows the last 14 days. <strong>Show older</strong> brings back earlier ones.")]) }}
+    <p>The board refreshes itself every minute, and whenever you come back to the browser tab, so you'll see colleagues' changes without reloading.</p>
+
+    <!-- ================================================================== -->
+    <h2 id="typical-day">A typical day</h2>
+    <ol class="steps">
+      <li><strong>Check “Coming up”.</strong> Start with anything in <em>Overdue</em>, then <em>Due today</em>.</li>
+      <li><strong>Open a task</strong> by clicking its row or card, and read the latest updates.</li>
+      <li><strong>Start work</strong>: drag the card to <em>Doing</em> (or click <em>Doing</em> inside the task) so others know you're on it.</li>
+      <li><strong>Post updates</strong> as things happen: “Emailed client for Form 16”, “Filed, acknowledgement saved”. This is how the team stays informed without asking.</li>
+      <li><strong>Finish</strong>: move it to <em>Done</em>. If it's a recurring task, next period's task appears in <em>To do</em> automatically.</li>
+      <li><strong>Add new work</strong> as it comes in with <strong>+ New task</strong>, assigned to whoever will do it.</li>
+    </ol>
+
+    <!-- ================================================================== -->
+    <h2 id="cards">Reading a card</h2>
+    {{ figure("card", 964, 182, "One task card",
+              pins=[(1, 446, 58), (2, 113, 160), (3, 275, 160), (4, 797, 160), (5, 880, 160)], width=640) }}
+    {{ legend([(1, "The task's <strong>title</strong>."),
+               (2, "<strong>Due date.</strong> <span style='color:var(--red)'>Red</span> means overdue (and by how many days), <span style='color:var(--amber)'>amber</span> means due today, grey means later. Done tasks show the day they were finished."),
+               (3, "<strong>Repeats</strong>: shown only for recurring tasks, with how often."),
+               (4, "Number of <strong>updates</strong> people have posted."),
+               (5, "<strong>Who it's assigned to</strong> (initials). Hover to see full names. A task can have several people, or none (“Unassigned”).")]) }}
+
+    <!-- ================================================================== -->
+    <h2 id="new-task">Creating a task</h2>
+    <p>Click <strong>+ New task</strong> at the top right.</p>
+    {{ figure("new-task", 964, 884, "The New task form",
+              pins=[(1, 912, 228), (2, 718, 356), (3, 165, 427), (4, 497, 432), (5, 912, 600), (6, 912, 783)], width=560) }}
+    {{ legend([(1, "<strong>Title</strong>: what needs doing, and for which client, e.g. “GSTR-1 – Patel Traders”."),
+               (2, "<strong>Assign to</strong>: click names to select them (highlighted = assigned). You're selected by default. Pick several people, or none."),
+               (3, "<strong>Due</strong> date."),
+               (4, "<strong>Repeats</strong>: <em>Never</em>, or weekly, monthly, quarterly, yearly for recurring compliance work. See <a href='#recurring'>Recurring tasks</a>."),
+               (5, "<strong>Notes</strong> (optional): anything useful, like where the documents are."),
+               (6, "<strong>Create</strong>. The new task opens straight away so you can check it.")]) }}
+
+    <!-- ================================================================== -->
+    <h2 id="task-view">Working on a task</h2>
+    <p>Clicking a card (or a row in “Coming up”) opens the task in a panel over the board. <strong>Every change saves by itself</strong>; there's no Save button.</p>
+    {{ figure("drawer", 1092, 1092, "An open task",
+              pins=[(1, 378, 44), (2, 1047, 80), (3, 752, 146), (4, 140, 247), (5, 752, 925), (6, 768, 1049), (7, 1070, 141), (8, 918, 226), (9, 880, 371), (10, 888, 512), (11, 935, 624)],
+              boxes=[(20, 268, 740, 290)], width=720) }}
+    {{ legend([(1, "<strong>Title</strong>: click to edit, press <kbd>Enter</kbd> to save."),
+               (2, "<strong>Close</strong>. You can also press <kbd>Esc</kbd> or click the dimmed board."),
+               (3, "<strong>Notes</strong>: click to edit. Saved when you click away."),
+               (4, "<strong>Updates</strong>: the full history, oldest first. Grey lines are written automatically whenever someone changes something (status, people, dates), so you can always see who did what and when. Comments show the person's name and time."),
+               (5, "<strong>Write an update</strong>: type progress notes, questions, anything. Type <strong>#</strong> and a task number (e.g. <em>#4</em>) to link to another task."),
+               (6, "<strong>Post update</strong>, or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>⌘</kbd>+<kbd>Enter</kbd> on a Mac)."),
+               (7, "<strong>Status</strong>: click <em>To do</em>, <em>Doing</em> or <em>Done</em>."),
+               (8, "<strong>Assignees</strong>: click names to add or remove people."),
+               (9, "<strong>Due</strong> date, with how late or soon it is."),
+               (10, "<strong>Repeats</strong>: change or stop a repeat schedule."),
+               (11, "<strong>Delete task</strong>: only for mistakes, as it removes the task and its updates permanently. You'll be asked to confirm.")]) }}
+    <div class="tip"><p>The updates list scrolls on its own, and the box for writing an update always stays at the bottom. The task number (<strong>#1</strong> at the top right) is handy for referring to a task in another task's updates.</p></div>
+
+    <!-- ================================================================== -->
+    <h2 id="moving">Moving a task along</h2>
+    <p>There are two ways to change a task's status, and both are recorded in its updates:</p>
+    <ul>
+      <li><strong>Drag the card</strong> on the board into another column. The column you're over gets a dashed outline; let go to drop it. See the dashed arrow (8) in <a href="#board">the board picture</a>.</li>
+      <li><strong>Open the task</strong> and click <em>To do</em>, <em>Doing</em> or <em>Done</em> under <em>Status</em>.</li>
+    </ul>
+    <p>Moved something by mistake? Just move it back. Reopening a done task is fine.</p>
+
+    <!-- ================================================================== -->
+    <h2 id="recurring">Recurring tasks</h2>
+    <p>Monthly GST returns, quarterly TDS, yearly ITRs: set <strong>Repeats</strong> once and the task keeps coming back.</p>
+    {{ figure("recurring", 1541, 784, "A quarterly task just marked Done",
+              pins=[(1, 1513, 76), (2, 575, 694), (3, 812, 745), (4, 1513, 598), (5, 1420, 689)],
+              boxes=[(70, 676, 760, 88)], width=780) }}
+    {{ legend([(1, "When a repeating task is marked <strong>Done</strong>…"),
+               (2, "…the updates record it…"),
+               (3, "…and the <strong>next occurrence</strong> is created at once, here <em>#13</em>, due a quarter later, with the same title, notes and people. Click the number to open it."),
+               (4, "<strong>Repeats</strong> shows the schedule. Set it to <em>Never</em> to stop future occurrences."),
+               (5, "<strong>Other occurrences</strong> lists earlier and later copies of the same task.")]) }}
+    <ul>
+      <li>The next due date is counted from the <strong>previous due date</strong>, not from when you finished. Filing late doesn't shift the schedule.</li>
+      <li>Month ends are handled: a task due on the 31st comes back on the 28th/30th in shorter months, and on the 31st again when the month allows.</li>
+      <li>Some statutory dates aren't evenly spaced. When that happens, just change the due date on the new task.</li>
+      <li>The next task only appears once the current one is done, so if this month's is still open, it stays at the top of <em>Overdue</em> until it's finished.</li>
+    </ul>
+
+    <!-- ================================================================== -->
+    <h2 id="finding">Finding tasks</h2>
+    <p>The <strong>Showing</strong> menu at the top left (1 in <a href="#board">the board picture</a>) controls both the board and the “Coming up” strip:</p>
+    <ul>
+      <li><strong>My tasks</strong>: tasks you're assigned to, including ones shared with others.</li>
+      <li><strong>Everyone</strong>: the whole firm's work.</li>
+      <li><strong>Unassigned</strong>: tasks nobody has picked up yet.</li>
+      <li><strong>A person's name</strong>: just their tasks, e.g. to cover for someone on leave.</li>
+    </ul>
+    <p>Your choice is remembered on that computer. If your board looks empty, check this first.</p>
+
+    <!-- ================================================================== -->
+    <h2 id="settings">Theme, password, sign out</h2>
+    <div class="figs-2">
+      {{ figure("menu", 740, 624, "Your menu",
+                pins=[(1, 205, 98), (2, 650, 270), (3, 545, 353), (4, 510, 426), (5, 425, 508)]) }}
+      <div>
+        {{ legend([(1, "<strong>Help</strong> opens this manual."),
+                   (2, "<strong>Theme</strong>: <em>System</em> follows your computer's light/dark setting; or pick <em>Light</em> or <em>Dark</em>. It follows you to any computer you sign in on."),
+                   (3, "<strong>Change password</strong>: needs your current one."),
+                   (4, "<strong>Manage people</strong>: only shown to admins."),
+                   (5, "<strong>Sign out</strong>: do this on a shared computer.")]) }}
+        <p>Open the menu by clicking your name at the top right.</p>
+      </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <h2 id="people">For admins: managing people</h2>
+    <p>Admins see <strong>Manage people</strong> in their menu.</p>
+    {{ figure("people", 1304, 792, "The People window after adding someone",
+              pins=[(1, 1249, 112), (2, 1274, 262), (3, 1106, 347), (4, 1274, 347), (5, 532, 614), (6, 1274, 580)], width=720) }}
+    {{ legend([(1, "After adding someone, their <strong>temporary password</strong> appears here, once. Share it with them straight away; they'll choose their own when they first sign in."),
+               (2, "<strong>Reset password</strong>: for anyone who's forgotten theirs. They're signed out and get a new temporary password."),
+               (3, "<strong>Make admin</strong> / <strong>Remove admin</strong>. There must always be at least one admin."),
+               (4, "<strong>Remove</strong>: when someone leaves. They can't sign in any more and are taken off their open tasks, but their past updates stay. You can't remove yourself."),
+               (5, "To add someone, type their <strong>full name</strong> and a <strong>username</strong> (lowercase, no spaces, e.g. <em>neha</em>)…"),
+               (6, "…and click <strong>Add person</strong>. Adding a username that was removed earlier brings that person back.")]) }}
+
+    <!-- ================================================================== -->
+    <h2 id="faq">Problems and questions</h2>
+    <h3>“Can't reach the server. Is Tailscale connected?”</h3>
+    <p>Check the Tailscale icon in your taskbar (or menu bar) and make sure it says <em>Connected</em>. If it is and the problem continues, the office PC that runs Tasks may be off or restarting. Ask whoever looks after it.</p>
+    <h3>I can't find a task</h3>
+    <p>Set <strong>Showing</strong> to <em>Everyone</em>. If it was finished more than 14 days ago, click <strong>Show older</strong> under <em>Done</em>.</p>
+    <h3>Someone else changed my task</h3>
+    <p>Open it and read the grey lines in <em>Updates</em>. Every change is recorded with who made it and when.</p>
+    <h3>Can I undo a change?</h3>
+    <p>Change it back; there's no separate undo. Deleting a task is the only thing that can't be undone.</p>
+    <h3>A red message appeared at the top</h3>
+    <p>It explains what went wrong, e.g. “A task needs a title.” Nothing was saved; fix it and try again.</p>
+  </main>
+</div>
+</body>
+</html>

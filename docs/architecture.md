@@ -84,6 +84,7 @@ Exceptions:
 | `GET /board?who=&done_days=` | `_board.html` + `_card.html` | Done shows the last 14 days by default |
 | `GET /tasks/{id}` | `_panel.html` | The task view. Returns an **empty body** if the task was deleted, which closes the drawer |
 | `GET /people` and the `POST /people...` routes | `_people.html` | Admin only |
+| `GET /help` | `help.html` | The user manual: a separate full page (linked from the top bar and login screen, opens in a new tab). Readable without signing in; uses the person's theme if they are. Screenshots live in `static/help/` |
 
 `who` is `me`, `all`, `none` (unassigned) or a user id. Unknown values fall back to `me`.
 

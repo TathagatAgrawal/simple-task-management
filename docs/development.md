@@ -74,6 +74,19 @@ Example: an optional `client` field.
 
 Add an empty element to `index.html` with `hx-get` and `hx-trigger="load, tasks-changed from:body"`, add a `GET` route that renders a new `_fragment.html`, and you're done: it stays in sync with no JS.
 
+### Update the user manual
+
+The manual is `templates/help.html`, with screenshots in `static/help/*.jpg`. Annotations aren't baked into the images. Each `figure()` call lists numbered **pins**, highlight **boxes** and **arrows** in the screenshot's own pixel coordinates, and the template converts them to percentages, so they stay aligned at any page width. `tests/test_help.py` checks that every referenced image exists.
+
+When the UI changes in a way that makes a screenshot wrong:
+
+1. Run the app on fresh demo data (`seed-demo`) and set the theme to **Light** (screenshots are all light).
+2. Use a ~1280px-wide browser window and move the mouse pointer out of the shot.
+3. Capture the screen or just the relevant area. Crops are taken at 2× for sharpness.
+4. Save it as JPEG (quality ~80) over the old file in `static/help/`, keeping the name. On a Mac: `sips -s format jpeg -s formatOptions 82 shot.png --out static/help/board.jpg`.
+5. If the image size changed, update the `w`/`h` arguments of its `figure()` call. If things moved, update the pin, box and arrow coordinates (read them off the image in any image viewer), and check the page in a browser.
+6. Update the text if the behaviour changed.
+
 ### Change what the "coming up" strip includes
 
 Edit `dates.bucket` and `SOON_DAYS`, plus the SQL horizon in `store.summary`, then update `test_dates.py` and `test_summary.py`.
