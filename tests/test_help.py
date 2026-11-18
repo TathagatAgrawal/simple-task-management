@@ -31,9 +31,18 @@ def test_every_screenshot_in_the_manual_exists(asha):
     """Each annotated screenshot the manual references is shipped in static/help."""
     html = asha.get("/help").text
     images = re.findall(r'src="/static/help/([\w-]+\.jpg)', html)
-    assert len(images) >= 9
+    assert len(images) >= 17  # nine desktop pictures, the bell and settings, and six phone ones
     missing = [name for name in images if not (STATIC / "help" / name).is_file()]
     assert missing == []
+
+
+def test_help_lists_the_keyboard_shortcuts_the_app_has(asha):
+    """The manual's shortcuts table names each key the client handles, written with <kbd>."""
+    html = asha.get("/help").text
+    table = html[html.index('id="shortcuts"') : html.index('id="notifications"')]
+    for key in ("n", "/", "[", "]", "Enter", "Esc", "Tab", "Ctrl", "⌘"):
+        assert f"<kbd>{key}</kbd>" in table, key
+    assert '<a href="#shortcuts">Keyboard shortcuts</a>' in html
 
 
 def test_help_is_linked_from_the_built_client():

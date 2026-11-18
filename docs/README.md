@@ -47,6 +47,7 @@ src/simple_task_management/
   templates/      index.html (a small shell) + help.html (the user manual, server-rendered)
   static/         app.css (light/dark), dist/app.js (the BUILT client, committed), sw.js (shows alerts, incl. pushes), help/ (manual screenshots)
 web/              the client's source: TypeScript + Preact (needs Node to build, never to run)
+  scripts/help-screenshots.mjs   retakes the manual's pictures (Node + Chrome)
 tests/            pytest; one file per area; fixed clock in conftest.py
 deploy/windows/   PowerShell scripts for install, status, restart, update
 docs/             you are here

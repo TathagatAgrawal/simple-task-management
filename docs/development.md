@@ -88,14 +88,16 @@ Add a component, read its data from a signal in `state.ts`, load it with a `refr
 
 The manual is `templates/help.html`, with screenshots in `static/help/*.jpg`. Annotations aren't baked into the images. Each `figure()` call lists numbered **pins**, highlight **boxes** and **arrows** in the screenshot's own pixel coordinates, and the template converts them to percentages, so they stay aligned at any page width. `tests/test_help.py` checks that every referenced image exists.
 
+The pictures are retaken by a script, not by hand, so they are always light, always 2× and always the same scenes (the board, one card, the New task form, an open task, a recurring task, the menu, the People window, the bell's list, the notification settings, the first sign-in, and six phone screens, including the menu a long press opens). Node and Chrome are needed, but nothing is installed.
+
 When the UI changes in a way that makes a screenshot wrong:
 
-1. Run the app on fresh demo data (`seed-demo`) and set the theme to **Light** (screenshots are all light).
-2. Use a ~1280px-wide browser window and move the mouse pointer out of the shot.
-3. Capture the screen or just the relevant area. Crops are taken at 2× for sharpness.
-4. Save it as JPEG (quality ~80) over the old file in `static/help/`, keeping the name. On a Mac: `sips -s format jpeg -s formatOptions 82 shot.png --out static/help/board.jpg`.
-5. If the image size changed, update the `w`/`h` arguments of its `figure()` call. If things moved, update the pin, box and arrow coordinates (read them off the image in any image viewer), and check the page in a browser.
-6. Update the text if the behaviour changed.
+1. Run the app on a **fresh** demo database (`DATA_DIR=/tmp/help-demo uv run simple-task-management seed-demo`, then `serve --port 8000` with the same `DATA_DIR`). The script adds tasks and a person, so a used database gives different pictures.
+2. Run `node web/scripts/help-screenshots.mjs http://localhost:8000`. It drives its own headless Chrome (set `CHROME` to the program's path if it isn't in the usual place), signs in as the demo people, writes the JPEGs into `static/help/`, and prints each picture's `figure()` size, pins, boxes and arrows in the picture's own pixels.
+3. Copy the printed numbers into the matching `figure()` calls in `templates/help.html` (the size, `pins=`, `boxes=`, `arrows=`). Where the layout moved, change which element a pin points at in the script (the selector and anchor beside its number) and run it again.
+4. Check the page in a browser, update the text if the behaviour changed, and restart the app first, because it reads the template once at startup.
+
+A new picture is a new `figure()` call plus a new scene in the script.
 
 ### Change what the "coming up" strip includes
 
