@@ -49,7 +49,8 @@ MIGRATIONS: list[str] = [
     # the bell shows their current work right after the update and they can read or clear it.
     # They are "bell only" (announce = 0): no pop-up and no desktop alert for old news. Skipped:
     # finished tasks, people who were removed, the person who made the task (they assigned
-    # themselves), and anyone who already has a notification about that task.
+    # themselves), anyone who already has a notification about that task, and anyone who chose
+    # "Nothing" for "assigned" in their notification settings.
     """
     INSERT INTO notifications (user_id, task_id, task_title, actor_id, body, kind, announce, created_at)
     SELECT a.user_id, t.id, t.title, t.created_by, 'assigned you to this task', 'assigned', 0, a.added_at
@@ -60,6 +61,10 @@ MIGRATIONS: list[str] = [
       AND (t.created_by IS NULL OR t.created_by != a.user_id)
       AND NOT EXISTS (
           SELECT 1 FROM notifications n WHERE n.user_id = a.user_id AND n.task_id = t.id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM notification_settings s
+          WHERE s.user_id = a.user_id AND s.kind = 'assigned' AND s.mode = 'off'
       );
     """,
     # 4 -> 5: small settings the app keeps for itself (for example whether to update automatically).
