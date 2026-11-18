@@ -770,6 +770,20 @@ export interface components {
             value: string;
         };
         /**
+         * OtherOverdue
+         * @description An overdue task the current "Showing" choice hides, with who it belongs to.
+         */
+        OtherOverdue: {
+            /** Due Label */
+            due_label: string;
+            /** Id */
+            id: number;
+            /** People */
+            people: string;
+            /** Title */
+            title: string;
+        };
+        /**
          * PasswordIn
          * @description A password change; ``current_password`` is not needed while the password is temporary.
          */
@@ -920,6 +934,8 @@ export interface components {
         Summary: {
             /** Firm Overdue */
             firm_overdue: number;
+            /** Others Overdue */
+            others_overdue: components["schemas"]["OtherOverdue"][];
             /** Overdue */
             overdue: components["schemas"]["SummaryItem"][];
             /** Soon */

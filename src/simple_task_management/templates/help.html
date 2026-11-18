@@ -148,7 +148,7 @@
                (2, "<strong>Help</strong> opens this manual in a new tab."),
                (3, "<strong>+ New task</strong>. See <a href='#new-task'>Creating a task</a>."),
                (4, "<strong>Your menu</strong>: theme (light or dark), change password, sign out, and <em>Manage people</em> for admins."),
-               (5, "<strong>Coming up</strong>: what's <span style='color:var(--red)'>overdue</span>, due today, and due in the next 3 days. Click any row to open that task."),
+               (5, "<strong>Due soon</strong>: what's <span style='color:var(--red)'>overdue</span>, due today, and due in the next 3 days. Click any row to open that task."),
                (6, "When a group has more than 3 tasks, <strong>Show more</strong> reveals the rest."),
                (7, "<strong>The board</strong>: three columns, <em>To do</em>, <em>Doing</em> and <em>Done</em>. Each column is sorted by due date, soonest first."),
                (8, "<strong>A card</strong> is one task. Click it to open it, or drag it to another column (dashed arrow) to change its status."),
@@ -158,7 +158,7 @@
     <!-- ================================================================== -->
     <h2 id="typical-day">A typical day</h2>
     <ol class="steps">
-      <li><strong>Check “Coming up”.</strong> Start with anything in <em>Overdue</em>, then <em>Due today</em>.</li>
+      <li><strong>Check “Due soon”.</strong> Start with anything in <em>Overdue</em>, then <em>Due today</em>. When anything is overdue for anyone in the firm, the Overdue card turns red and shows a count, and it names other people's overdue tasks even while you are looking at “My tasks”.</li>
       <li><strong>Open a task</strong> by clicking its row or card, and read the latest updates.</li>
       <li><strong>Start work</strong>: drag the card to <em>Doing</em> (or click <em>Doing</em> inside the task) so others know you're on it.</li>
       <li><strong>Post updates</strong> as things happen: “Emailed client for Form 16”, “Filed, acknowledgement saved”. This is how the team stays informed without asking.</li>
@@ -190,7 +190,8 @@
 
     <!-- ================================================================== -->
     <h2 id="task-view">Working on a task</h2>
-    <p>Clicking a card (or a row in “Coming up”) opens the task in a panel over the board. <strong>Every change saves by itself</strong>; there's no Save button. “Saving…” then “Saved ✓” shows at the top of the panel, and if something can't be saved the reason appears right under that field. Setting a due date in the past asks you to confirm first.</p>
+    <p>Clicking a card (or a row in “Due soon”) opens the task in a panel over the board. <strong>Every change saves by itself</strong>; there's no Save button. “Saving…” then “Saved ✓” shows at the top of the panel, and if something can't be saved the reason appears right under that field. Setting a due date in the past asks you to confirm first. Deleting a task, or clearing read notifications, also asks first, in a box that says exactly what will go.</p>
+    <p><strong>Moved a card by mistake?</strong> For a few seconds after any move, a bar at the bottom of the page says “Moved … to Done” with an <strong>Undo</strong> button.</p>
     {{ figure("drawer", 1092, 1092, "An open task",
               pins=[(1, 378, 44), (2, 1047, 80), (3, 752, 146), (4, 140, 247), (5, 752, 925), (6, 768, 1049), (7, 1070, 141), (8, 918, 226), (9, 880, 371), (10, 888, 512), (11, 935, 624)],
               boxes=[(20, 268, 740, 290)], width=720) }}
@@ -236,7 +237,7 @@
 
     <!-- ================================================================== -->
     <h2 id="finding">Finding tasks</h2>
-    <p>The <strong>Showing</strong> menu at the top left (1 in <a href="#board">the board picture</a>) controls both the board and the “Coming up” strip:</p>
+    <p>The <strong>Showing</strong> menu at the top left (1 in <a href="#board">the board picture</a>) controls both the board and the “Due soon” strip:</p>
     <ul>
       <li><strong>My tasks</strong>: tasks you're assigned to, including ones shared with others.</li>
       <li><strong>Everyone</strong>: the whole firm's work.</li>
@@ -244,7 +245,7 @@
       <li><strong>A person's name</strong>: just their tasks, e.g. to cover for someone on leave.</li>
     </ul>
     <p>Your choice is remembered on that computer. If your board looks empty, check this first.</p>
-    <p><strong>To find a task by name</strong>, type in the <strong>Search tasks</strong> box at the top (press <kbd>/</kbd> to jump to it, <kbd>Esc</kbd> to clear it). It looks through the tasks in your “Showing” choice, including older finished ones. If you don't see what you expect, try <em>Everyone</em>. The “Coming up” strip says when there is overdue work for other people that “My tasks” is hiding, and one click shows it.</p>
+    <p><strong>To find a task by name</strong>, type in the <strong>Search tasks</strong> box at the top (press <kbd>/</kbd> to jump to it, <kbd>Esc</kbd> to clear it). It looks through the tasks in your “Showing” choice, including older finished ones. If you don't see what you expect, try <em>Everyone</em>. The “Due soon” strip says when there is overdue work for other people that “My tasks” is hiding, and one click shows it.</p>
     <p><strong>Keyboard:</strong> <kbd>n</kbd> starts a new task. Tab to a card and press <kbd>Enter</kbd> to open it, or <kbd>[</kbd> and <kbd>]</kbd> to move it to the previous or next column.</p>
 
     <!-- ================================================================== -->
@@ -253,7 +254,7 @@
     <ul>
       <li><strong>A message appears at the top right of the page</strong>, under the bell (at the top on a phone), while the board is open. Messages about a new task for you, a changed due date, being taken off a task, or a deleted task <strong>stay until you dismiss them</strong>; others (a comment, a move, an edit) fade after 15 seconds. Press <em>View</em> to open the task. If several arrive at once you get one message that opens the list. While the bell's list is open you won't get messages, because the changes appear in the list itself.</li>
       <li>The <strong>bell</strong> at the top shows how many you haven't read. On a phone it is the <strong>Alerts</strong> tab. Several changes to one task are grouped into one row. Click it to open the task (everything in the row is marked read). The tick marks it read or unread again, and × removes it. <em>Mark all read</em> works on the whole list, and <em>Clear read</em> asks before it deletes. Notifications you've read are cleared automatically after a month.</li>
-      <li><strong>Choose what you hear about.</strong> Open <em>Notification settings</em> from your menu (on a phone, from the Me tab), or press <em>Settings</em> at the top of the bell's list. For each kind of change (assigned to you, a task edited, moved, commented on, you're removed, deleted) pick <em>Alert and bell</em> (the bell, plus an alert on each device where you've turned alerts on), <em>Bell only</em> (the bell, quietly) or <em>Nothing</em>. A "Saved ✓" appears beside the row you changed. Your choices only affect you, and everything starts on <em>Alert and bell</em>.</li>
+      <li><strong>Choose what you hear about.</strong> Open <em>Notification settings</em> from your menu (on a phone, from the Me tab), or press <em>Settings</em> at the top of the bell's list. First, under <em>Alerts on this device</em>, turn alerts on for the phone or computer you're using. Then pick how much you want to hear: <em>Alert and bell</em> (the bell, plus an alert on each device where you've turned alerts on), <em>Bell only</em> (the bell, quietly) or <em>Nothing</em>. That one choice covers everything; to treat some kinds of change differently (assigned to you, a task edited, moved, commented on, you're removed, deleted), open <em>Customise by event</em>. A "Saved ✓" appears beside the choice you changed. Your choices only affect you, and everything starts on <em>Alert and bell</em>.</li>
       <li>To get an alert on a phone or computer even when the board is closed, press <strong>Turn on alerts on this device</strong> (in the bell's list, or under <em>Alerts on this device</em> in the settings). Your browser asks once; choose <em>Allow</em>. Do this on each device you want alerts on. On an <strong>iPhone or iPad</strong>, first add the board to your Home Screen (Share, then <em>Add to Home Screen</em>) and open it from that icon. A device with alerts on shows the system's own notification instead of a message on the page; the bell still counts. On a computer, alerts arrive while your browser is running. <em>Send a test</em> checks it works, and <em>Turn off</em> stops it. If you'd rather not have task names show on your lock screen, untick <em>Show the task's name in alerts</em>.</li>
       <li>You are also told about changes other people make to a task <strong>you created</strong>, even if you aren't on it.</li>
     </ul>
@@ -284,8 +285,8 @@
     <p>It then opens full-screen like any other app. On an iPhone you'll sign in once more the first time you open the home-screen icon.</p>
     <h3>Finding your way around</h3>
     <ul>
-      <li>The tabs at the bottom are <strong>Board</strong>, <strong>Coming up</strong> (overdue, due today and the next 3 days; the red number is how many are overdue) and <strong>Me</strong> (theme, password, people, help and sign out).</li>
-      <li>On the Board, tap <strong>To do / Doing / Done</strong> to switch columns. The <strong>+</strong> at the top adds a task, and the pill next to the title is the “Showing” filter.</li>
+      <li>The tabs at the bottom are <strong>Board</strong>, <strong>Due soon</strong> (overdue, due today and the next 3 days; the red number is how many are overdue) and <strong>Me</strong> (theme, password, people, help and sign out).</li>
+      <li>On the Board, tap <strong>To do / Doing / Done</strong> to switch columns. The <strong>+ New task</strong> button at the top adds a task, the pill next to the title is the “Showing” filter, and the magnifier opens search. The line just above the columns sums up what is overdue, due today and due in 3 days; tap it to see the list.</li>
       <li>Tap a card to open it as a full page. Go back with the ‹ button, by swiping right from the left edge, or with your phone's back button or gesture.</li>
     </ul>
     <h3>Moving tasks without dragging</h3>

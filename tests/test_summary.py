@@ -63,3 +63,22 @@ def test_firm_overdue_ignores_the_filter(asha, ravi, users):
     assert mine["overdue"] == [] and mine["firm_overdue"] == 2
     assert asha.get("/api/summary", params={"who": "me"}).json()["firm_overdue"] == 2
     assert len(asha.get("/api/summary", params={"who": "all"}).json()["overdue"]) == 2
+
+
+def test_hidden_overdue_tasks_are_named_with_their_people(asha, ravi, users):
+    """The My tasks view names the firm's other overdue work (first names, a few), not just a count."""
+    new_task(asha, title="Mine", due="2026-11-10", assignee_ids=[users["ravi"]])
+    new_task(asha, title="Meera's", due="2026-11-06", assignee_ids=[users["meera"], users["asha"]])
+    new_task(asha, title="Nobody's", due="2026-11-08")
+    for i in range(3):
+        new_task(asha, title=f"Extra {i}", due="2026-11-07", assignee_ids=[users["meera"]])
+    mine = ravi.get("/api/summary", params={"who": "me"}).json()
+    names = [(t["title"], t["people"]) for t in mine["others_overdue"]]
+    assert len(names) == 3 and mine["firm_overdue"] == 6
+    assert ("Mine", "Ravi") not in names  # shown in the overdue list already
+    everyone = ravi.get("/api/summary", params={"who": "all"}).json()
+    assert everyone["others_overdue"] == []
+    asha_view = asha.get("/api/summary", params={"who": "none"}).json()
+    assert ("Meera's", "Asha, Meera") in {
+        (t["title"], t["people"]) for t in asha_view["others_overdue"]
+    }

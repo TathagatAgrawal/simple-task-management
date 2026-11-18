@@ -372,14 +372,91 @@ function failSave(fields: string[], error: unknown): void {
   saveStatus.value = "error";
 }
 
+// ---- asking before something that can't be undone ---------------------------------------
+export type ConfirmRequest = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  danger: boolean;
+  resolve: (ok: boolean) => void;
+};
+
+/** The question the page is asking, if any; ConfirmDialog shows it and ``answerConfirm`` ends it. */
+export const confirmRequest = signal<ConfirmRequest | null>(null);
+
+/** Ask a yes/no question in the page's own dialog. Resolves true only when the person says yes. */
+export function askConfirm(options: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}): Promise<boolean> {
+  confirmRequest.value?.resolve(false);
+  return new Promise((resolve) => {
+    confirmRequest.value = { cancelLabel: "Cancel", danger: false, ...options, resolve };
+  });
+}
+
+export function answerConfirm(ok: boolean): void {
+  const request = confirmRequest.value;
+  confirmRequest.value = null;
+  request?.resolve(ok);
+}
+
+/** Ask before deleting a task, naming it and what goes with it. */
+export function confirmDelete(title: string, comments: number): Promise<boolean> {
+  const what = comments > 0 ? `the task, its history and its ${comments} comment${comments === 1 ? "" : "s"}` : "the task and its history";
+  return askConfirm({
+    title: `Delete “${title}”?`,
+    body: `This deletes ${what}. It can't be undone.`,
+    confirmLabel: "Delete task",
+    danger: true,
+  });
+}
+
+// ---- undoing a move ------------------------------------------------------------------------
+export type Undo = { id: number; text: string; from: Status };
+
+/** The last move, offered for a few seconds so a slip of the hand can be taken back. */
+export const undo = signal<Undo | null>(null);
+let undoTimer: ReturnType<typeof setTimeout> | undefined;
+const UNDO_SECONDS = 6;
+
+export function dismissUndo(): void {
+  clearTimeout(undoTimer);
+  undo.value = null;
+}
+
+function offerUndo(offer: Undo): void {
+  clearTimeout(undoTimer);
+  undo.value = offer;
+  undoTimer = setTimeout(dismissUndo, UNDO_SECONDS * 1000);
+}
+
+/** Put the last moved card back where it was. */
+export async function undoMove(): Promise<void> {
+  const offer = undo.value;
+  if (!offer) return;
+  dismissUndo();
+  await moveTask(offer.id, offer.from, { offerUndo: false });
+}
+
 /** Move a card to another column: the board updates at once, then the server confirms. */
-export async function moveTask(id: number, status: Status, options: { keepFocus?: boolean } = {}): Promise<void> {
+export async function moveTask(
+  id: number,
+  status: Status,
+  options: { keepFocus?: boolean; offerUndo?: boolean } = {},
+): Promise<void> {
   const current = board.value;
   let title = "";
+  let from: Status | null = null;
   if (current) {
     const card = (Object.values(current).flat() as Card[]).find((c) => c.id === id);
     if (card && card.status !== status) {
       title = card.title;
+      from = card.status;
       const next: Board = { todo: [], doing: [], done: [] };
       for (const key of ["todo", "doing", "done"] as const) {
         next[key] = current[key].filter((c) => c.id !== id);
@@ -396,6 +473,7 @@ export async function moveTask(id: number, status: Status, options: { keepFocus?
     if (title) {
       const label = meta.value?.statuses.find((s) => s.value === status)?.label ?? status;
       liveMessage.value = `Moved “${title}” to ${label}`;
+      if (from && options.offerUndo !== false) offerUndo({ id, from, text: `Moved “${title}” to ${label}` });
     }
   } catch (error) {
     failSave(["status"], error);
@@ -453,6 +531,7 @@ export async function deleteTask(id: number): Promise<void> {
     return;
   }
   if (openTaskId.value === id) closeTask();
+  if (undo.value?.id === id) dismissUndo();
   void refreshBoard();
 }
 
@@ -490,6 +569,12 @@ export function openNotification(taskId: number | null, id: number | null): void
 
 export async function saveNotificationSetting(kind: string, mode: Mode): Promise<void> {
   settings.value = await api.saveSettings({ [kind]: mode });
+}
+
+/** Give every kind of change the same choice (the "How loud?" control). */
+export async function saveAllNotificationSettings(mode: Mode): Promise<void> {
+  const kinds = Object.keys(settings.value ?? {});
+  settings.value = await api.saveSettings(Object.fromEntries(kinds.map((k) => [k, mode])));
 }
 
 // ---- people (admin) ------------------------------------------------------------------------

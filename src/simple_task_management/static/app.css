@@ -78,6 +78,7 @@ a { color: var(--accent); }
 .btn.small { padding: 3px 8px; font-size: 12px; }
 .btn.link { border: 0; background: none; color: var(--accent); padding: 4px 0; }
 .btn.danger { color: var(--red); }
+.btn.danger-fill { background: var(--red); border-color: var(--red); color: var(--accent-text); font-weight: 600; }
 .btn.icon { border: 0; background: none; padding: 2px 6px; color: var(--muted); }
 .chip {
   display: inline-block; font-size: 12px; font-weight: 600; border-radius: 10px; padding: 2px 9px;
@@ -227,6 +228,7 @@ button.nmain { cursor: pointer; }
 .form-error:empty { display: none; }
 .row > .form-error { flex-basis: 100%; }
 fieldset { border: 0; padding: 0; margin: 0; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 legend { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 
 /* ---- top bar ---- */
@@ -269,6 +271,12 @@ button.menu-item:hover { background: var(--surface-2); }
 .sumcard h3 { font-size: 12px; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .sumcard.overdue h3 { color: var(--red); }
 .sumcard.today h3 { color: var(--amber); }
+.sumcard.overdue:not(.alarm) h3 { color: var(--muted); }
+/* Anything overdue anywhere in the firm makes the card loud: a fill, a border and a count. */
+.sumcard.overdue.alarm { background: var(--red-soft); border-color: var(--red); }
+.sumcard.alarm .sum-count { background: var(--red); color: var(--accent-text); border-radius: 10px; padding: 0 7px; min-width: 20px; text-align: center; }
+.sumcard.alarm .sum-item:hover, .sumcard.alarm .sum-item:focus-visible { background: var(--surface); }
+.sumcard .sum-sub { margin: 8px 0 2px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .sumcard p { margin: 0; }
 /* Each task is a full-width clickable row: title, due label, and an "open" arrow on hover. */
 .sum-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; margin: 0 -6px; }
@@ -373,6 +381,20 @@ dialog.modal {
   padding: 18px 20px; width: min(440px, calc(100vw - 32px)); box-shadow: var(--shadow);
 }
 dialog.modal.wide { width: min(640px, calc(100vw - 32px)); }
+dialog.confirm { width: min(420px, calc(100vw - 32px)); }
+dialog.confirm p { margin: 6px 0 14px; }
+.confirm-actions { margin-top: 4px; }
+/* "Moved to Done · Undo": a bar at the foot of the page for a few seconds after a card moves. */
+.undo-bar {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 24px); padding: 8px 8px 8px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.undo-bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nset-help { margin: 6px 0 0; }
+.nset-more { margin-top: 14px; }
+.nset-more > summary { cursor: pointer; color: var(--accent); padding: 6px 0; }
+.nset-section .chip { margin-left: 6px; vertical-align: 2px; }
 dialog::backdrop { background: rgba(0, 0, 0, .35); }
 dialog h2 { font-size: 16px; margin-bottom: 4px; }
 .people { list-style: none; padding: 0; margin: 10px 0 14px; }
@@ -385,7 +407,7 @@ dialog h2 { font-size: 16px; margin-bottom: 4px; }
    The same page, restyled: tabs at the bottom (Board / Coming up / Me), one column at a time
    on the board, the task drawer as a full-screen page, dialogs as bottom sheets. The mobile-only
    pieces are hidden on larger screens. */
-.tabbar, .me-view, .col-tabs, .swipe-hint, .back-btn, .sheet-grab { display: none; }
+.tabbar, .me-view, .col-tabs, .swipe-hint, .back-btn, .sheet-grab, .search-btn, .deadline-line, .swipe-tip { display: none; }
 .avatar.lg { width: 56px; height: 56px; font-size: 18px; border-width: 0; }
 dialog.actions { display: none; }
 
@@ -398,9 +420,13 @@ dialog.actions { display: none; }
   .topbar { padding: 8px 14px; padding-top: calc(8px + env(safe-area-inset-top)); gap: 8px; }
   .topbar .brand { font-size: 22px; letter-spacing: -.01em; margin-right: 0; }
   .who-label, .help-link, .usermenu, .bell-wrap, .notif-panel, .search { display: none; }
+  /* Search sits behind a magnifier and opens as a second row under the title. */
+  .topbar.search-open { flex-wrap: wrap; }
+  .search-btn { display: inline-grid; place-items: center; width: 36px; height: 40px; }
+  .topbar.search-open .search { display: block; flex: 1 0 100%; order: 10; height: 40px; border-radius: 20px; padding: 0 14px; }
   /* The filter and New task mean nothing on the Alerts and Me pages. */
   body[data-tab="alerts"] .topbar > :not(.brand), body[data-tab="me"] .topbar > :not(.brand) { display: none; }
-  #who { height: 40px; border-radius: 20px; padding: 0 30px 0 14px; max-width: 42vw; font-weight: 500; text-overflow: ellipsis; }
+  #who { height: 40px; border-radius: 20px; padding: 0 30px 0 14px; max-width: 30vw; font-weight: 500; text-overflow: ellipsis; }
   .new-btn { border-radius: 20px; padding: 0 16px; height: 40px; }
 
   /* tabs */
@@ -437,6 +463,17 @@ dialog.actions { display: none; }
   .summary { grid-template-columns: 1fr; padding: 12px 14px 4px; }
   .sum-item { padding: 11px 6px; }
   .sum-go { opacity: 1; }
+
+  /* The deadlines in one line above the columns, and a one-time hint about swipes. */
+  .deadline-line {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: calc(100% - 28px);
+    margin: 12px 14px 0; padding: 10px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); color: var(--text); text-align: left;
+  }
+  .undo-bar { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .deadline-line.late { background: var(--red-soft); border-color: var(--red); }
+  .swipe-tip { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 14px 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .swipe-tip .linkbtn { flex: none; }
 
   /* board: one status at a time, chosen with the segmented control */
   .col-tabs { display: flex; background: var(--surface-2); border-radius: 10px; padding: 2px; margin: 12px 14px 4px; }

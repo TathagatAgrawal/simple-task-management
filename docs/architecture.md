@@ -107,7 +107,7 @@ There is one page, not a separate mobile site. `app.css` has one `@media (max-wi
 | Desktop | Phone |
 |---|---|
 | Top bar with Help, the bell and the user menu | Compact bar: title, the "Showing" select as a pill, a round **+**. Help, settings and sign out live in the **Me** tab (`MeView`) |
-| Summary strip above the board | The **Coming up** tab, with the overdue count as a badge |
+| Summary strip above the board | The **Due soon** tab, with the overdue count as a badge, plus a one-line summary (`DeadlineLine`) above the columns on the Board tab |
 | The bell and its panel | The **Alerts** tab, with the unread count as a badge |
 | Three columns | One column at a time, chosen with the segmented control (`.col-tabs`). The tab and status are `data-tab` / `data-seg` on `<body>`, set from `state.ts` and remembered in `localStorage` |
 | Drag-and-drop | Swipe a card right to move it on (To do → Doing → Done → To do), swipe left or press and hold for the actions sheet (Open, Move to, Delete). Each card sits in a `.card-wrap` so a coloured hint shows behind it as it slides |
@@ -137,6 +137,12 @@ Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time
 After a change is saved, `Pusher.loop` (started in `lifespan`, woken by the same hub as live updates, plus every 30 seconds as a safety net) finds notifications with `pushed_at IS NULL`, builds a short message for each person whose mode is "alert", encrypts it with `pywebpush` and posts it to Apple, Google or Mozilla's push service, which wakes the device. Every notification is then stamped handled, so a restart never repeats one, and anything older than 10 minutes is stamped without being sent. A 404 or 410 deletes the subscription; any other failure is logged and skipped. Tests replace `Pusher.send` with a recorder.
 
 **On a device with push turned on, the page shows no popup or desktop alert of its own** (`systemAlerts()` in `alerts.ts`, checked in `refreshNotifications`): the system banner is the only alert, and the page shows just the bell number and, where supported, the app-icon badge. A device without push keeps the on-page message and desktop alert. The service worker replaces an older copy at once (`skipWaiting`, `clients.claim`), so people who turned on desktop alerts before pushes existed get the push handler without closing every tab. It always shows what it is sent (iOS requires every push to show something), using the tag `n-<id>` and `requireInteraction` for sticky kinds. Each person chooses whether banners carry the task's title (`users.push_details`, `PATCH /api/push`); when off they read "A task changed". The app's signing key lives in `app_settings`, so backups carry it. Settings: `PUSH` (on by default) and `PUSH_CONTACT`.
+
+## Asking, and undoing
+
+The browser's `confirm()` pop-ups are not used. `askConfirm()` in `state.ts` puts a question in the `confirmRequest` signal and returns a promise; `ConfirmDialog` (`Confirm.tsx`, one instance in `App.tsx`) shows it in a native `<dialog>` with the safe answer focused, and Escape or a tap outside means no. Deleting a task goes through `confirmDelete`, which names the task and its comment count. Every move goes through `moveTask`, which remembers where the card was and offers it back for six seconds in the `undo` signal (`UndoBar`, "Moved … to Done · Undo"); undoing moves it back and does not offer another undo. Undoing a Done on a recurring task reopens it, and its next occurrence, if one was already made, stays (the server's existing rule).
+
+The deadline strip's Overdue card is loud (`.alarm`) whenever the firm has anything overdue. `GET /api/summary` returns `others_overdue`, the first three overdue tasks that the "Showing" choice hides, with their people's first names, so "My tasks" can never hide them behind a bare count.
 
 ## Updates
 

@@ -1,9 +1,11 @@
 // The top bar, the phone's tab bar and Me / Alerts pages, the card actions sheet and the banner.
+import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import type { Theme } from "../api/types";
 import {
-  banner, cardActions, chooseTheme, deleteTask, dismissBanner, liveMessage, me, modal, moveTask, openTask,
-  people, search, setSearch, setTab, setWho, signOut, summary, tab, unread, updateInfo, who,
+  banner, board, cardActions, chooseTheme, confirmDelete, deleteTask, dismissBanner, dismissUndo, liveMessage, me, modal,
+  moveTask, openTask, people, search, setSearch, setTab, setWho, signOut, summary, tab, undo, undoMove, unread,
+  updateInfo, who,
 } from "../state";
 import { Avatar } from "./bits";
 import { Icon } from "./Icon";
@@ -77,8 +79,11 @@ function UserMenu() {
 }
 
 export function TopBar() {
+  // On a phone the search box sits behind a magnifier; a query that is typed keeps it open.
+  const open = useSignal(false);
+  const showing = open.value || search.value !== "";
   return (
-    <header class="topbar">
+    <header class={`topbar${showing ? " search-open" : ""}`}>
       <span class="brand">Tasks</span>
       <label class="muted who-label" for="who">
         Showing
@@ -107,6 +112,23 @@ export function TopBar() {
         onKeyDown={(e) => e.key === "Escape" && search.value && (e.preventDefault(), setSearch(""))}
       />
       <span class="spacer" />
+      <button
+        type="button"
+        class="iconbtn search-btn"
+        aria-label="Search tasks"
+        aria-pressed={showing}
+        onClick={() => {
+          if (showing) {
+            setSearch("");
+            open.value = false;
+          } else {
+            open.value = true;
+            requestAnimationFrame(() => document.getElementById("q")?.focus());
+          }
+        }}
+      >
+        <Icon name={showing ? "close" : "search"} size={20} />
+      </button>
       <a class="help-link" href="/help" target="_blank" rel="noopener">
         <Icon name="help" size={16} /> Help
       </a>
@@ -130,7 +152,7 @@ export function TabBar() {
       </button>
       <button type="button" data-tab="soon" aria-current={current("soon")} onClick={() => setTab("soon")}>
         <Icon name="calendar" size={22} />
-        <span>Coming up</span>
+        <span>Due soon</span>
         <CountBadge count={overdue} class="badge" />
       </button>
       <button type="button" data-tab="alerts" aria-current={current("alerts")} onClick={() => setTab("alerts")}>
@@ -241,9 +263,10 @@ export function CardActions() {
             <button
               type="button"
               class="danger"
-              onClick={() => {
+              onClick={async () => {
                 done();
-                if (confirm("Delete this task and all its updates? This can't be undone.")) void deleteTask(target.id);
+                const card = board.value && Object.values(board.value).flat().find((c) => c.id === target.id);
+                if (await confirmDelete(target.title, card?.comments ?? 0)) void deleteTask(target.id);
               }}
             >
               Delete…
@@ -255,6 +278,23 @@ export function CardActions() {
         </>
       )}
     </dialog>
+  );
+}
+
+/** "Moved to Done · Undo" for a few seconds after a card moves, so a slip of the hand is easy to take back. */
+export function UndoBar() {
+  const offer = undo.value;
+  if (!offer) return null;
+  return (
+    <div class="undo-bar" role="group" aria-label="Last move">
+      <span>{offer.text}</span>
+      <button type="button" class="btn small" onClick={undoMove}>
+        Undo
+      </button>
+      <button type="button" class="iconbtn" aria-label="Dismiss" onClick={dismissUndo}>
+        <Icon name="close" size={16} />
+      </button>
+    </div>
   );
 }
 
