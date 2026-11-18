@@ -48,6 +48,14 @@
   </main>
 
 {% else %}
+  {% macro alerts_optin() %}
+  <div class="alerts-optin" data-state="ask">
+    <p class="s-ask">Get a desktop alert when someone changes one of your tasks. <button type="button" class="btn small primary" onclick="tbEnableAlerts()">Turn on desktop alerts</button></p>
+    <p class="s-on">Desktop alerts are on for this browser. <button type="button" class="linkbtn" onclick="tbTestAlert()">Send a test</button></p>
+    <p class="s-blocked">Desktop alerts are blocked in this browser. To get them, allow notifications for this site from the padlock beside the address, then reload.</p>
+    <p class="s-unsupported">Desktop alerts aren't available in this browser. New notifications still appear here and as a banner while the page is open.</p>
+  </div>
+  {% endmacro %}
   <header class="topbar">
     <span class="brand">Tasks</span>
     <label class="muted who-label" for="who">Showing</label>
@@ -62,6 +70,7 @@
     <input type="hidden" id="done-days" name="done_days" value="14">
     <span class="spacer"></span>
     <a class="help-link" href="/help" target="_blank" rel="noopener">{{ icon("help", 16) }} Help</a>
+    <span id="bell-badge" hx-get="/notifications/badge" hx-trigger="load" hx-swap="outerHTML"></span>
     <button class="btn primary new-btn" type="button" aria-label="New task" onclick="tbOpenDialog('new-task')">+<span class="lbl"> New task</span></button>
     <details class="usermenu">
       <summary><span class="avatar tone-{{ user.id | avatar_tone }}">{{ user.name | initials }}</span> {{ user.name.split()[0] }} {{ icon("chevron", 14) }}</summary>
@@ -84,11 +93,25 @@
     </details>
   </header>
 
+  <div id="notif-panel" class="notif-panel" popover aria-label="Notifications">
+    <div class="notif-head"><strong>Notifications</strong></div>
+    {{ alerts_optin() }}
+    <div id="notif-list" hx-get="/notifications"
+         hx-trigger="toggle from:#notif-panel, notifications-changed from:body, notifications-new from:body"></div>
+  </div>
+  <div id="toasts" role="status" aria-live="polite"></div>
+
   <main>
       <section id="summary" hx-get="/summary" hx-include="#who"
                hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window, visibilitychange[document.visibilityState=='visible'] from:document"></section>
       <section id="board" hx-get="/board" hx-include="#who, #done-days"
                hx-trigger="load, filters-changed from:body, tasks-changed from:body, every 60s [!tbDragging], focus from:window, visibilitychange[document.visibilityState=='visible'] from:document"></section>
+      <section id="alerts-view" class="alerts-view" aria-label="Alerts">
+        <h1 class="me-title">Alerts</h1>
+        {{ alerts_optin() }}
+        <div id="alerts-list" hx-get="/notifications"
+             hx-trigger="load, notifications-changed from:body, notifications-new from:body"></div>
+      </section>
       <section id="me-view" class="me-view" aria-label="Me">
         <h1 class="me-title">Me</h1>
         <div class="me-card">
@@ -117,6 +140,7 @@
   <nav class="tabbar" aria-label="Sections">
     <button type="button" data-tab="board" onclick="tbSetTab('board')">{{ icon("board", 22) }}<span>Board</span></button>
     <button type="button" data-tab="soon" onclick="tbSetTab('soon')">{{ icon("calendar", 22) }}<span>Coming up</span><span class="badge" id="overdue-badge" hidden></span></button>
+    <button type="button" data-tab="alerts" onclick="tbSetTab('alerts')">{{ icon("bell", 22) }}<span>Alerts</span><span class="badge" id="alerts-badge" hidden></span></button>
     <button type="button" data-tab="me" onclick="tbSetTab('me')">{{ icon("user", 22) }}<span>Me</span></button>
   </nav>
 

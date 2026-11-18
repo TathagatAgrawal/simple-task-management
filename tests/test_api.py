@@ -285,3 +285,25 @@ def test_openapi_schema_describes_the_api(app, users):
         schema = client.get("/api/openapi.json").json()
         assert "/tasks/{task_id}" in schema["paths"]
         assert client.get("/openapi.json").status_code == 404
+
+
+def test_api_notifications(app, users):
+    """The JSON API lists, reads, dismisses and counts my notifications."""
+    from conftest import sign_in
+
+    asha_client = sign_in(app, "asha")
+    ravi_client = sign_in(app, "ravi")
+    asha_client.post(
+        "/tasks", data={"title": "Filing", "due": "2026-11-20", "assignee_ids": [users["ravi"]]}
+    )
+    unread = ravi_client.get("/api/notifications/unread").json()
+    assert unread["unread"] == 1
+    items = ravi_client.get("/api/notifications?unread=true").json()
+    assert items[0]["text"] == "Asha Iyer assigned you a new task"
+    assert items[0]["detail"] == "Filing" and items[0]["read"] is False
+    assert ravi_client.get(f"/api/notifications?after={unread['newest']}").json() == []
+    nid = items[0]["id"]
+    assert ravi_client.post(f"/api/notifications/{nid}/read").status_code == 204
+    assert ravi_client.get("/api/notifications/unread").json()["unread"] == 0
+    assert ravi_client.delete("/api/notifications").status_code == 204
+    assert ravi_client.get("/api/notifications").json() == []

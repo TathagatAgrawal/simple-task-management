@@ -58,7 +58,7 @@ Each of these is a reasonable feature, but none is needed yet. Don't add them wi
 | Projects, labels, priorities, sub-tasks | The due date is the priority, and title text covers the rest |
 | Manual card ordering within a column | Columns sort by due date, which is the order that matters for deadlines |
 | File attachments | Files live in the firm's existing folders and email |
-| Email or push notifications | The "coming up" strip covers it; a daily digest is a possible later feature |
+| Email, or Web Push when the browser is closed | In-app notifications and desktop alerts cover people who have the board open. Web Push would add a dependency and keys; see [design/notifications.html](design/notifications.html) |
 | WebSockets / live updates | Polling every 60s plus refresh-on-focus is enough for three people |
 | Public internet access (Tailscale Funnel) | Task titles contain client names, so the app stays tailnet-only |
 | Mobile layout | Planned next; see the design plan's "Later versions" |

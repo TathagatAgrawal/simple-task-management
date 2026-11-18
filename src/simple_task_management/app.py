@@ -37,6 +37,7 @@ from .recurrence import REPEAT_LABELS
 
 HERE = Path(__file__).parent
 TASKS_CHANGED = {"HX-Trigger": "tasks-changed"}
+NOTIFICATIONS_CHANGED = {"HX-Trigger": "notifications-changed"}
 _TASK_REF = re.compile(r"#(\d+)\b")
 
 
@@ -378,8 +379,69 @@ def create_app(
     @app.post("/tasks/{task_id}/delete", status_code=204)
     def delete(conn: Conn, user: User, task_id: int) -> Response:
         """Delete a task (the UI asks for confirmation first)."""
-        store.delete_task(conn, task_id)
+        store.delete_task(conn, user, task_id)
         return Response(status_code=204, headers=TASKS_CHANGED)
+
+    # ------------------------------------------------------------ notifications
+
+    @app.get("/notifications/badge", response_class=HTMLResponse)
+    def notification_badge(request: Request, conn: Conn, user: User) -> HTMLResponse:
+        """The bell with its unread count; the page polls this to notice new notifications."""
+        unread, newest = store.notification_counts(conn, user["id"])
+        return render(request, "_notif_badge.html", unread=unread, newest=newest, user=user)
+
+    @app.get("/notifications", response_class=HTMLResponse)
+    def notification_list(request: Request, conn: Conn, user: User) -> HTMLResponse:
+        """My notifications, newest first."""
+        now_day = today()
+        items = [
+            {
+                "id": n["id"],
+                "task_id": n["task_id"],
+                "actor": n["actor_name"] or "Someone",
+                "body": n["body"],
+                "title": n["title"],
+                "unread": n["read_at"] is None,
+                "when": dates.stamp(n["created_at"], settings.tz, now_day),
+                "due": (
+                    dates.due_label(date.fromisoformat(n["due_date"]), now_day)
+                    if n["due_date"] and n["status"] != "done"
+                    else None
+                ),
+            }
+            for n in store.notifications_for(conn, user["id"])
+        ]
+        return render(request, "_notif_list.html", items=items)
+
+    @app.post("/notifications/read-all", status_code=204)
+    def notifications_read_all(conn: Conn, user: User) -> Response:
+        """Mark every notification of mine as read."""
+        store.set_notification_read(conn, user["id"], None, read=True)
+        return Response(status_code=204, headers=NOTIFICATIONS_CHANGED)
+
+    @app.post("/notifications/clear-read", status_code=204)
+    def notifications_clear_read(conn: Conn, user: User) -> Response:
+        """Delete every notification of mine that I've already read."""
+        store.dismiss_notifications(conn, user["id"], None)
+        return Response(status_code=204, headers=NOTIFICATIONS_CHANGED)
+
+    @app.post("/notifications/{notification_id}/read", status_code=204)
+    def notification_read(conn: Conn, user: User, notification_id: int) -> Response:
+        """Mark one notification as read."""
+        store.set_notification_read(conn, user["id"], notification_id, read=True)
+        return Response(status_code=204, headers=NOTIFICATIONS_CHANGED)
+
+    @app.post("/notifications/{notification_id}/unread", status_code=204)
+    def notification_unread(conn: Conn, user: User, notification_id: int) -> Response:
+        """Mark one notification as unread again."""
+        store.set_notification_read(conn, user["id"], notification_id, read=False)
+        return Response(status_code=204, headers=NOTIFICATIONS_CHANGED)
+
+    @app.post("/notifications/{notification_id}/dismiss", status_code=204)
+    def notification_dismiss(conn: Conn, user: User, notification_id: int) -> Response:
+        """Delete one notification."""
+        store.dismiss_notifications(conn, user["id"], notification_id)
+        return Response(status_code=204, headers=NOTIFICATIONS_CHANGED)
 
     # ------------------------------------------------------------ people (admin)
 
@@ -458,6 +520,15 @@ def create_app(
         """The web app manifest that lets phones install the app to the home screen."""
         return FileResponse(
             HERE / "static" / "manifest.webmanifest", media_type="application/manifest+json"
+        )
+
+    @app.get("/sw.js", include_in_schema=False)
+    def service_worker() -> FileResponse:
+        """The service worker that shows desktop alerts; served from the root so it covers the site."""
+        return FileResponse(
+            HERE / "static" / "sw.js",
+            media_type="text/javascript",
+            headers={"Cache-Control": "no-cache"},
         )
 
     @app.get("/healthz", response_class=PlainTextResponse)

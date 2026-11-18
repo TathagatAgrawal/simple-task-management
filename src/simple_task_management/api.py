@@ -392,7 +392,7 @@ def build_api(
     def delete_task(conn: Conn, user: User, task_id: int) -> Response:
         """Delete a task and all its updates, for good."""
         existing_task(conn, task_id)
-        store.delete_task(conn, task_id)
+        store.delete_task(conn, user, task_id)
         return Response(status_code=204)
 
     @api.post("/tasks/{task_id}/updates", status_code=201, tags=["tasks"])
@@ -401,6 +401,62 @@ def build_api(
         existing_task(conn, task_id)
         store.add_comment(conn, user, task_id, body.body)
         return task_json(conn, store.get_task(conn, task_id))
+
+    # ------------------------------------------------------------ notifications
+
+    def notification_json(n: sqlite3.Row) -> dict:
+        """One notification, with ready-made ``text`` and ``detail`` lines for showing it."""
+        actor = n["actor_name"] or "Someone"
+        return {
+            "id": n["id"],
+            "task_id": n["task_id"],
+            "text": f"{actor} {n['body']}",
+            "detail": n["title"],
+            "read": n["read_at"] is not None,
+            "created_at": n["created_at"],
+        }
+
+    @api.get("/notifications", tags=["notifications"])
+    def notifications(conn: Conn, user: User, after: int = 0, unread: bool = False) -> list[dict]:
+        """My notifications, newest first (at most 50). ``after`` is a notification id."""
+        found = store.notifications_for(conn, user["id"], after=after, unread_only=unread)
+        return [notification_json(n) for n in found]
+
+    @api.get("/notifications/unread", tags=["notifications"])
+    def notifications_unread(conn: Conn, user: User) -> dict:
+        """How many are unread, and the id of the newest one."""
+        unread, newest = store.notification_counts(conn, user["id"])
+        return {"unread": unread, "newest": newest}
+
+    @api.post("/notifications/read-all", status_code=204, tags=["notifications"])
+    def notifications_read_all(conn: Conn, user: User) -> Response:
+        """Mark all my notifications as read."""
+        store.set_notification_read(conn, user["id"], None, read=True)
+        return Response(status_code=204)
+
+    @api.post("/notifications/{notification_id}/read", status_code=204, tags=["notifications"])
+    def notification_read(conn: Conn, user: User, notification_id: int) -> Response:
+        """Mark one notification as read."""
+        store.set_notification_read(conn, user["id"], notification_id, read=True)
+        return Response(status_code=204)
+
+    @api.post("/notifications/{notification_id}/unread", status_code=204, tags=["notifications"])
+    def notification_unread(conn: Conn, user: User, notification_id: int) -> Response:
+        """Mark one notification as unread."""
+        store.set_notification_read(conn, user["id"], notification_id, read=False)
+        return Response(status_code=204)
+
+    @api.delete("/notifications/{notification_id}", status_code=204, tags=["notifications"])
+    def notification_dismiss(conn: Conn, user: User, notification_id: int) -> Response:
+        """Delete one notification."""
+        store.dismiss_notifications(conn, user["id"], notification_id)
+        return Response(status_code=204)
+
+    @api.delete("/notifications", status_code=204, tags=["notifications"])
+    def notifications_clear_read(conn: Conn, user: User) -> Response:
+        """Delete every notification I've already read."""
+        store.dismiss_notifications(conn, user["id"], None)
+        return Response(status_code=204)
 
     # ------------------------------------------------------------ people
 

@@ -7,7 +7,24 @@ from pathlib import Path
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 # Future schema changes: append SQL strings here. Entry N upgrades user_version N -> N+1.
-MIGRATIONS: list[str] = []
+MIGRATIONS: list[str] = [
+    # 1 -> 2: notifications. The text is stored, so it still reads right after the task is
+    # deleted (task_id becomes NULL and task_title keeps the name).
+    """
+    CREATE TABLE notifications (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,  -- never reused, so "newer than id N" holds
+        user_id    INTEGER NOT NULL REFERENCES users (id),
+        task_id    INTEGER REFERENCES tasks (id) ON DELETE SET NULL,
+        task_title TEXT    NOT NULL,
+        actor_id   INTEGER REFERENCES users (id),
+        body       TEXT    NOT NULL,
+        created_at TEXT    NOT NULL,
+        read_at    TEXT
+    );
+
+    CREATE INDEX notifications_user ON notifications (user_id, id);
+    """,
+]
 
 
 def now_iso() -> str:

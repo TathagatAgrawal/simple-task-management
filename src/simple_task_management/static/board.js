@@ -1,5 +1,6 @@
 // Small client-side helpers: filter memory, drag-and-drop, the task panel, dialogs, theme, errors,
-// and the phone layout (tabs, swipe gestures, back navigation, sheets).
+// notifications (toasts and desktop alerts), and the phone layout (tabs, swipe gestures, back
+// navigation, sheets).
 // Everything else is htmx attributes in the templates.
 (function () {
   "use strict";
@@ -264,7 +265,7 @@
     try { const v = localStorage.getItem(key); return allowed.includes(v) ? v : null; } catch (_) { return null; }
   };
   if (body.dataset.tab !== undefined) {
-    body.dataset.tab = recall("tb-tab", ["board", "soon", "me"]) || "board";
+    body.dataset.tab = recall("tb-tab", ["board", "soon", "alerts", "me"]) || "board";
     body.dataset.seg = recall("tb-seg", ["todo", "doing", "done"]) || "todo";
   }
   window.tbSetTab = (tab) => { body.dataset.tab = tab; remember("tb-tab", tab); window.scrollTo(0, 0); };
@@ -437,6 +438,104 @@
     const r = d.getBoundingClientRect();
     if (isPhone() && e.target === d && e.clientY < r.top) d.close();
   }));
+
+  // ---- notifications ------------------------------------------------------------
+  // The bell polls /notifications/badge (see _notif_badge.html). When its "newest" id grows, the
+  // new notifications are fetched and announced: a toast on the page whenever it is visible, and a
+  // desktop (OS) alert too when the person has turned those on and isn't looking at this window.
+  const alertsSupported = "Notification" in window && "serviceWorker" in navigator;
+  const alertState = () => !alertsSupported ? "unsupported"
+    : ({ granted: "on", denied: "blocked" }[Notification.permission] || "ask");
+  const showAlertState = () => document.querySelectorAll(".alerts-optin").forEach((el) => { el.dataset.state = alertState(); });
+  showAlertState();
+  if (alertState() === "on") navigator.serviceWorker.register("/sw.js").catch(() => { /* alerts stay in-page */ });
+  // Must run from a click, or browsers refuse to ask for permission.
+  window.tbEnableAlerts = async () => {
+    try {
+      await navigator.serviceWorker.register("/sw.js");
+      await Notification.requestPermission();
+    } catch (_) { /* blocked or unsupported: the state below says so */ }
+    showAlertState();
+  };
+  async function osNotify(n) {
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification(n.text, {
+      body: n.detail, tag: "n-" + n.id, icon: "/static/icons/icon-192.png", data: { taskId: n.task_id, id: n.id },
+    });
+  }
+  window.tbTestAlert = () => osNotify({ id: "test", text: "Desktop alerts are working", detail: "You'll see this when a task of yours changes.", task_id: null });
+
+  window.tbOpenNotification = ({ taskId, id }) => {
+    if (id) htmx.ajax("POST", "/notifications/" + id + "/read", { swap: "none" });
+    const panel = document.getElementById("notif-panel");
+    if (panel && panel.matches(":popover-open")) panel.hidePopover();
+    if (taskId) tbOpenTask(taskId);
+  };
+  window.tbOpenNotificationRow = (el) => tbOpenNotification({
+    taskId: Number(el.dataset.taskId),
+    id: el.closest(".nrow").classList.contains("unread") ? Number(el.dataset.id) : 0,
+  });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "open-task") tbOpenNotification({ taskId: e.data.taskId, id: e.data.id });
+    });
+  }
+
+  function toast(n) {
+    const box = document.getElementById("toasts");
+    if (!box) return;
+    const el = document.createElement("div");
+    el.className = "toast";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "toast-open";
+    const text = document.createElement("strong");
+    text.textContent = n.text;
+    const detail = document.createElement("span");
+    detail.textContent = n.detail;
+    open.append(text, detail);
+    open.addEventListener("click", () => { tbOpenNotification({ taskId: n.task_id, id: n.id }); el.remove(); });
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "iconbtn";
+    close.setAttribute("aria-label", "Dismiss alert");
+    close.textContent = "×";
+    close.addEventListener("click", () => el.remove());
+    el.append(open, close);
+    box.append(el);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => el.remove(), 15000);
+  }
+
+  const load = (key) => { try { return localStorage.getItem(key); } catch (_) { return null; } };
+  let lastNewest = null;
+  body.addEventListener("htmx:afterSettle", async () => {
+    const bell = document.getElementById("bell-badge");
+    if (!bell || bell.dataset.newest === undefined) return;
+    const unread = Number(bell.dataset.unread), newest = Number(bell.dataset.newest);
+    const tabBadge = document.getElementById("alerts-badge");
+    if (tabBadge) { tabBadge.textContent = unread; tabBadge.hidden = unread === 0; }
+    document.title = unread ? "(" + unread + ") Tasks" : "Tasks";
+    if (newest === lastNewest) return;
+    lastNewest = newest;
+    // Each browser remembers the newest id it has announced. A first visit announces nothing old.
+    const key = "tb-alerted-" + bell.dataset.user, stored = load(key);
+    const seen = stored === null ? newest : Number(stored);
+    remember(key, String(newest));
+    if (newest <= seen) return;
+    htmx.trigger(body, "notifications-new");
+    let fresh = [];
+    try {
+      const res = await fetch("/api/notifications?unread=true&after=" + seen, { headers: { Accept: "application/json" } });
+      if (res.ok) fresh = (await res.json()).reverse();
+    } catch (_) { return; }
+    const looking = document.visibilityState === "visible";
+    const focused = looking && document.hasFocus();
+    for (const n of fresh) {
+      if (looking) toast(n);
+      if (alertState() === "on" && !focused) osNotify(n);
+    }
+  });
 
   // ---- theme ----------------------------------------------------------------
   window.tbSetTheme = (theme) => {

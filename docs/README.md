@@ -20,6 +20,7 @@ Three people share a board of tasks. Each task has a title, notes, one or more a
 | 4 | [development.md](development.md) | Setup, commands, code conventions, step-by-step recipes for common changes, testing, and known gotchas |
 | 5 | [operations.md](operations.md) | How it's deployed and run on Windows, the security model, backups and recovery |
 | – | [design/plan.html](design/plan.html) | The original design plan with diagrams and UI mockups. It's the historical record of *why*; where it differs from the code, the code and these docs win. |
+| – | [design/notifications.html](design/notifications.html) | The notifications design. Phases 1 and 2 (inbox and desktop alerts) are built; Phase 3 (Web Push) is not. Where it differs from the code, the code wins: it notifies on every change, not only assignment. |
 
 The root [README.md](../README.md) is the user-facing guide: how to try the app on a Mac, deploy it on Windows, and what staff need to do.
 
@@ -40,7 +41,7 @@ src/simple_task_management/
   __init__.py     CLI: serve, create-admin, set-password, backup, seed-demo
   templates/      index.html (the page) + _fragments.html (swapped in by htmx) + _icons.html
                   + help.html (the user manual, a separate page)
-  static/         app.css (light/dark), board.js (~480 lines), htmx.min.js (vendored), help/ (manual screenshots)
+  static/         app.css (light/dark), board.js (~560 lines), sw.js (desktop alerts), htmx.min.js (vendored), help/ (manual screenshots)
 tests/            pytest; one file per area; fixed clock in conftest.py
 deploy/windows/   PowerShell scripts for install, status, restart, update
 docs/             you are here
@@ -50,7 +51,7 @@ docs/             you are here
 
 ```bash
 uv sync                                              # install
-uv run pytest                                        # 97 tests, ~5 seconds
+uv run pytest                                        # 111 tests, ~5 seconds
 uv run ruff check . && uv run ruff format .          # lint + format (CI enforces both)
 DATA_DIR=demo-data uv run simple-task-management seed-demo
 DATA_DIR=demo-data uv run simple-task-management serve --reload
