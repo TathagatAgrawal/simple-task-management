@@ -4,6 +4,8 @@ import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from simple_task_management import backup, db, store
 
 
@@ -38,3 +40,18 @@ def test_migrate_is_idempotent(settings, conn):
     """Running migrations again leaves the schema version unchanged."""
     assert db.migrate(conn) == 3
     assert store.active_people(conn) == []
+
+
+def test_a_failed_migration_changes_nothing(settings, conn, monkeypatch):
+    """A migration that fails halfway is undone completely, so the update can be retried."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    monkeypatch.setattr(
+        db, "MIGRATIONS", [*db.MIGRATIONS, "ALTER TABLE tasks ADD COLUMN extra TEXT; BREAK;"]
+    )
+    with pytest.raises(sqlite3.Error):
+        db.migrate(conn)
+    columns = [r[1] for r in conn.execute("PRAGMA table_info(tasks)")]
+    assert "extra" not in columns
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == version
+    monkeypatch.setattr(db, "MIGRATIONS", db.MIGRATIONS[:-1])
+    assert db.migrate(conn) == version  # and it still works afterwards
