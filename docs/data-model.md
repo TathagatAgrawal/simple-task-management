@@ -9,7 +9,8 @@ users ──< task_assignees >── tasks ──< updates
   │                           │  └── prev_task_id ──▶ tasks (next-occurrence chain)
   ├──< sessions               └── created_by ──▶ users
   ├──< notifications >── tasks (task_id becomes NULL if the task is deleted)
-  └──< notification_settings
+  ├──< notification_settings
+  └──< push_subscriptions
 ```
 
 ### `users`
@@ -50,15 +51,21 @@ An event's `body` is the **predicate only**, for example `moved this to Doing`. 
 
 ### `notifications`
 
-An inbox row per person per change they should hear about. `user_id` is the recipient, `actor_id` who made the change, `body` the predicate (for example `moved this to Doing`, `commented: …`), shown after the actor's name. `task_title` keeps the task's name so the row still reads after the task is deleted (`task_id` is then `NULL`, from `ON DELETE SET NULL`). `kind` says what happened (`assigned`, `changed`, `moved`, `comment`, `removed` or `deleted`; the list is `store.NOTIFICATION_KINDS`). `announce` is `0` for an "inbox only" notification: it's listed in the bell but never pops up or sends a desktop alert. `read_at` is `NULL` while unread. `id` is `AUTOINCREMENT` on purpose: the page announces anything newer than the last id it saw, so an id must never be reused after a delete. Rows are private to their recipient, and a person can delete their own freely: the task's thread, not the inbox, is the permanent record.
+An inbox row per person per change they should hear about. By default that is the task's assignees **and the person who created it** (so a task you handed to someone else still tells you what they do with it), never whoever made the change (`store._notify`, `_assignees_and_creator`); a person who is both is told once. `user_id` is the recipient, `actor_id` who made the change, `body` the predicate (for example `moved this to Doing`, `commented: …`), shown after the actor's name. `task_title` keeps the task's name so the row still reads after the task is deleted (`task_id` is then `NULL`, from `ON DELETE SET NULL`). `kind` says what happened (`assigned`, `changed`, `moved`, `comment`, `removed` or `deleted`; the list is `store.NOTIFICATION_KINDS`). `announce` is `0` for an "inbox only" notification: it's listed in the bell but never alerts or pushes. `read_at` is `NULL` while unread. `id` is `AUTOINCREMENT` on purpose: the page announces anything newer than the last id it saw, so an id must never be reused after a delete. Rows are private to their recipient, and a person can delete their own freely: the task's thread, not the inbox, is the permanent record.
 
 ### `notification_settings`
 
-What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Pop up and bell" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
+What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Alert and bell" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
+
+### `push_subscriptions`
+
+One row per phone or computer a person turned alerts on for: `(id, user_id, endpoint UNIQUE, p256dh, auth, created_at)`. The three text columns are what the browser gave when it subscribed; `endpoint` is the push service's private address for that device. A device that signs in as someone else moves to them (the endpoint is unique). Rows are removed when the person turns alerts off or signs out on that device, when the push service answers 404 or 410 (the device is gone), and when the person is removed from the firm.
+
+Two other columns belong to push. `notifications.pushed_at` is set when a notification has been handled for push (sent, or deliberately not: bell only, older than 10 minutes, or the person is inactive), so nothing is ever pushed twice. `users.push_details` (1 by default) says whether that person's banners show the task's title or only "A task changed".
 
 ### `app_settings`
 
-`(key, value)` for the few things the app keeps for itself. Today there is one: `auto_update` (`on` or `off`, absent means off), chosen by admins in the Updates window and read by `update.ps1` through `simple-task-management update-setting`. Access goes through `store.get_setting` and `store.set_setting`.
+`(key, value)` for the few things the app keeps for itself. Today there are two: `vapid_private_key`, the key the app signs pushes with (made the first time it is needed; keeping it in the database means backups carry it and moving to a new PC keeps every device working), and `auto_update` (`on` or `off`, absent means off), chosen by admins in the Updates window and read by `update.ps1` through `simple-task-management update-setting`. Access goes through `store.get_setting` and `store.set_setting`.
 
 ### `sessions`
 
@@ -100,6 +107,8 @@ The logic is in `store.move_task` → `store._spawn_next` → `recurrence.next_d
 
 - Version 0 (an empty file): apply `schema.sql` and set the version to 1.
 - Later changes: **append** an SQL string to `db.MIGRATIONS`. Entry *N* (0-based) upgrades version *N+1* to *N+2*. Never edit `schema.sql` for an existing deployment, and never reorder or edit a migration that has shipped.
+
+**Migration 5 to 6 adds Web Push.** It creates `push_subscriptions` and adds `notifications.pushed_at` and `users.push_details`, and in the same step stamps every existing notification as handled so the update never sends old news.
 
 **Migration 3 to 4 is a backfill, not a schema change.** Tasks that existed before notifications get one unread notification for each person on them: "assigned you to this task", dated when that person was added, with the task's creator as the actor. They are `announce = 0` (bell only), so old news never pops up or sends a desktop alert. It skips finished tasks, people who were removed, the creator when they assigned the task to themselves (the same "never about your own actions" rule as live notifications), and anyone who already has a notification about that task, so it is safe on a database that already had some (`tests/test_backfill.py`). Because it only runs once, per version number, people can read or clear these without them coming back.
 

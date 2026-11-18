@@ -161,7 +161,7 @@ def test_migration_adds_the_table_to_a_version_1_database(tmp_path):
     conn = db.connect(tmp_path / "old.db")
     conn.executescript(db.SCHEMA_PATH.read_text(encoding="utf-8"))
     conn.execute("PRAGMA user_version = 1")
-    assert db.migrate(conn) == 5
+    assert db.migrate(conn) == 6
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 
@@ -287,7 +287,7 @@ def test_migration_backfills_the_kind_of_old_notifications(tmp_path):
             "VALUES (1, 1, 'T', ?, '2026-11-14T00:00:00+00:00')",
             (body,),
         )
-    assert db.migrate(conn) == 5
+    assert db.migrate(conn) == 6
     kinds = [r[0] for r in conn.execute("SELECT kind FROM notifications ORDER BY id")]
     assert kinds == ["assigned", "removed", "comment", "deleted", "moved", "moved", "changed"]
 
@@ -317,3 +317,63 @@ def test_removal_and_deletion_are_sticky(asha, ravi, users):
     sticky = {n["body"]: n["sticky"] for n in ravi.get("/api/notifications").json()}
     assert sticky["removed you from this task"] is True
     assert sticky["assigned you a new task"] is True
+
+
+def test_creator_hears_about_changes_to_a_task_they_gave_away(asha, ravi, conn, users):
+    """A task made by Asha for Ravi alone still tells Asha when Ravi moves, comments or edits."""
+    task_id = new_task(asha, assignee_ids=[users["ravi"]])
+    conn.execute("DELETE FROM notifications")
+    conn.commit()
+
+    move(ravi, task_id, "done")
+    ravi.post(f"/api/tasks/{task_id}/updates", json={"body": "Filed"})
+    ravi.patch(f"/api/tasks/{task_id}", json={"title": "Renamed"})
+    ravi.patch(f"/api/tasks/{task_id}", json={"assignee_ids": [users["ravi"], users["meera"]]})
+
+    assert _rows(conn) == [
+        ("asha", "marked this Done"),
+        ("asha", "commented: Filed"),
+        ("asha", "renamed this from “A task”"),
+        ("meera", "assigned you to this task"),
+        ("asha", "added Meera Shah"),
+    ]
+
+
+def test_creator_who_is_also_assigned_is_told_once(asha, ravi, conn, users):
+    """Being both creator and assignee gives one notification, not two."""
+    task_id = new_task(asha, assignee_ids=[users["asha"], users["ravi"]])
+    conn.execute("DELETE FROM notifications")
+    conn.commit()
+    move(ravi, task_id, "doing")
+    assert _rows(conn) == [("asha", "moved this to Doing")]
+
+
+def test_a_third_person_edit_tells_the_creator_and_the_assignee(asha, conn, users, app):
+    """Someone not on the task changing it tells both the creator and the assignee."""
+    from conftest import sign_in
+
+    task_id = new_task(asha, assignee_ids=[users["ravi"]])
+    conn.execute("DELETE FROM notifications")
+    conn.commit()
+    meera = sign_in(app, "meera")
+    move(meera, task_id, "doing")
+    assert sorted(_rows(conn)) == [
+        ("asha", "moved this to Doing"),
+        ("ravi", "moved this to Doing"),
+    ]
+
+
+def test_creator_settings_and_state_are_respected(asha, ravi, conn, users):
+    """A creator who turned a kind off, or who is inactive, hears nothing; a nameless creator is fine."""
+    task_id = new_task(asha, assignee_ids=[users["ravi"]])
+    store.set_notification_settings(conn, users["asha"], {"moved": "off"})
+    conn.execute("DELETE FROM notifications")
+    conn.commit()
+    move(ravi, task_id, "doing")
+    assert _rows(conn) == []
+
+    conn.execute("UPDATE users SET is_active = 0 WHERE id = ?", (users["asha"],))
+    conn.execute("UPDATE tasks SET created_by = NULL WHERE id = ?", (task_id,))
+    conn.commit()
+    ravi.post(f"/api/tasks/{task_id}/updates", json={"body": "Hello"})
+    assert _rows(conn) == []

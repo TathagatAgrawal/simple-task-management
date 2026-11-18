@@ -32,16 +32,17 @@ NOTIFICATION_KINDS = {
     "removed": ("I'm removed from a task", "Someone takes me off a task."),
     "deleted": ("A task I'm on is deleted", "A task I was on is removed."),
 }
-# How a kind reaches a person, named for what happens: "alert" = in the bell, a message on the page
-# and a desktop alert; "inbox" = in the bell only; "off" = not at all. "alert" is the default.
+# How a kind reaches a person, named for what happens: "alert" = in the bell and an alert (a
+# system notification on devices with push turned on, otherwise a message on the page); "inbox" = in the bell only; "off" = not at all. "alert" is the default.
 NOTIFICATION_MODES = {
-    "alert": "Pop up and bell",
+    "alert": "Alert and bell",
     "inbox": "Bell only",
     "off": "Nothing",
 }
 # Notifications that change a deadline or a person's work: the page keeps their message on screen
 # until it is dismissed, instead of letting it fade.
 STICKY_KINDS = ("assigned", "removed", "deleted")
+PUSH_MAX_AGE_MINUTES = 10  # a notification older than this is never pushed (stale news)
 USERNAME_RE = re.compile(r"^[a-z0-9._-]{2,32}$")
 
 
@@ -237,6 +238,7 @@ def remove_person(conn: sqlite3.Connection, actor: sqlite3.Row, user_id: int) ->
         ]
         conn.execute("UPDATE users SET is_active = 0 WHERE id = ?", (user_id,))
         conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM push_subscriptions WHERE user_id = ?", (user_id,))
         for task_id in open_ids:
             conn.execute(
                 "DELETE FROM task_assignees WHERE task_id = ? AND user_id = ?", (task_id, user_id)
@@ -446,6 +448,18 @@ def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
 # ---------------------------------------------------------------- notifications
 
 
+def _assignees_and_creator(conn: sqlite3.Connection, task_id: int) -> list[int]:
+    """Ids of the task's assignees followed by its creator (if it has one)."""
+    ids = [
+        r[0]
+        for r in conn.execute("SELECT user_id FROM task_assignees WHERE task_id = ?", (task_id,))
+    ]
+    row = conn.execute("SELECT created_by FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if row is not None and row[0] is not None:
+        ids.append(row[0])
+    return ids
+
+
 def _notify(
     conn: sqlite3.Connection,
     actor: sqlite3.Row,
@@ -463,18 +477,15 @@ def _notify(
     whether they are told at all ("off") and whether it also pops up ("alert") or only lands in
     their inbox ("inbox").
 
-    By default the recipients are the task's current assignees. Callers pass ``recipients``
-    when someone who is no longer (or not yet) on the task should hear about it too. Call this
+    By default the recipients are the task's current assignees and the person who created it, so
+    a task you handed to someone else still tells you what they do with it. Callers pass
+    ``recipients`` when someone who is no longer (or not yet) on the task should hear about it
+    too. Call this
     inside the same ``with conn:`` block as the change. Read notifications older than a month are
     deleted here, so the table stays small without a background job.
     """
     if recipients is None:
-        recipients = [
-            r[0]
-            for r in conn.execute(
-                "SELECT user_id FROM task_assignees WHERE task_id = ?", (task_id,)
-            )
-        ]
+        recipients = _assignees_and_creator(conn, task_id)
     wanted = [uid for uid in dict.fromkeys(recipients) if uid != actor["id"]]
     if wanted:
         marks = ",".join("?" * len(wanted))
@@ -539,6 +550,95 @@ def set_notification_settings(
                     "ON CONFLICT (user_id, kind) DO UPDATE SET mode = excluded.mode",
                     (user_id, kind, mode),
                 )
+
+
+def is_sticky(kind: str, body: str) -> bool:
+    """Whether a notification stays on screen until dismissed (deadlines, assignments, removals)."""
+    return kind in STICKY_KINDS or "due date" in body
+
+
+# ---------------------------------------------------------------- push (devices and sending)
+
+
+def save_push_subscription(
+    conn: sqlite3.Connection, user_id: int, endpoint: str, p256dh: str, auth: str
+) -> None:
+    """Remember a device for a person; a device that signs in as someone else moves to them."""
+    with conn:
+        conn.execute(
+            """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT (endpoint) DO UPDATE SET
+                   user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth""",
+            (user_id, endpoint, p256dh, auth, now_iso()),
+        )
+
+
+def delete_push_subscription(
+    conn: sqlite3.Connection, endpoint: str, user_id: int | None = None
+) -> None:
+    """Forget a device. With ``user_id`` only that person's own device can be removed."""
+    sql, args = "DELETE FROM push_subscriptions WHERE endpoint = ?", [endpoint]
+    if user_id is not None:
+        sql, args = sql + " AND user_id = ?", [endpoint, user_id]
+    with conn:
+        conn.execute(sql, args)
+
+
+def push_subscriptions_for(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.Row]:
+    """A person's devices, as ``endpoint``, ``p256dh`` and ``auth``."""
+    return conn.execute(
+        "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ).fetchall()
+
+
+def has_push_subscription(conn: sqlite3.Connection, user_id: int, endpoint: str) -> bool:
+    """Whether this device is saved for this person."""
+    return (
+        conn.execute(
+            "SELECT 1 FROM push_subscriptions WHERE user_id = ? AND endpoint = ?",
+            (user_id, endpoint),
+        ).fetchone()
+        is not None
+    )
+
+
+def set_push_details(conn: sqlite3.Connection, user_id: int, details: bool) -> None:
+    """Choose whether the person's banners show the task's title (True) or stay generic."""
+    with conn:
+        conn.execute("UPDATE users SET push_details = ? WHERE id = ?", (int(details), user_id))
+
+
+def notifications_to_push(conn: sqlite3.Connection, limit: int = 200) -> list[sqlite3.Row]:
+    """Notifications not yet handled for push, oldest first, with what a banner needs."""
+    return conn.execute(
+        """SELECT n.id, n.user_id, n.task_id, n.kind, n.body, n.announce, n.created_at,
+                  COALESCE(t.title, n.task_title) AS title, a.name AS actor_name,
+                  u.is_active, u.push_details
+           FROM notifications n
+           JOIN users u ON u.id = n.user_id
+           LEFT JOIN users a ON a.id = n.actor_id
+           LEFT JOIN tasks t ON t.id = n.task_id
+           WHERE n.pushed_at IS NULL
+           ORDER BY n.id LIMIT ?""",
+        (limit,),
+    ).fetchall()
+
+
+def mark_pushed(conn: sqlite3.Connection, ids: list[int]) -> None:
+    """Record that these notifications were handled, so they are never pushed again."""
+    now = now_iso()
+    with conn:
+        conn.executemany(
+            "UPDATE notifications SET pushed_at = ? WHERE id = ?", [(now, i) for i in ids]
+        )
+
+
+def push_details(conn: sqlite3.Connection, user_id: int) -> bool:
+    """Whether this person's banners show task titles."""
+    row = conn.execute("SELECT push_details FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row[0]) if row else True
 
 
 def notifications_for(
@@ -776,7 +876,11 @@ def set_assignees(
             recipients=removed,
         )
         # Everyone who was already on the task hears who joined or left.
+        # The creator hears it too, even when they are not on the task.
         kept = [i for i in wanted if i not in added]
+        creator = _require_task(conn, task_id)["created_by"]
+        if creator is not None:
+            kept.append(creator)
         _notify(
             conn, actor, task_id, title, " · ".join(parts), now, kind="changed", recipients=kept
         )

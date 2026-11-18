@@ -8,7 +8,7 @@ breaks the client's build instead of breaking it silently in someone's browser.
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Status = Literal["todo", "doing", "done"]
 Mode = Literal["alert", "inbox", "off"]
@@ -222,3 +222,45 @@ class Unread(BaseModel):
 
     unread: int
     newest: int
+
+
+class PushKeys(BaseModel):
+    """The two keys a browser gives for one device."""
+
+    p256dh: str = Field(min_length=1, max_length=200)
+    auth: str = Field(min_length=1, max_length=100)
+
+
+class PushSubscriptionIn(BaseModel):
+    """A device asking to receive alerts (the browser's own subscription, as JSON)."""
+
+    endpoint: str = Field(min_length=1, max_length=2000)
+    keys: PushKeys
+
+
+class PushEndpointIn(BaseModel):
+    """Names one device by its endpoint."""
+
+    endpoint: str = Field(min_length=1, max_length=2000)
+
+
+class PushPatch(BaseModel):
+    """Change how my banners read."""
+
+    details: bool
+
+
+class PushInfo(BaseModel):
+    """What the page needs to set up alerts on this device."""
+
+    enabled: bool
+    public_key: str
+    details: bool
+    devices: int
+    this_device: bool
+
+
+class PushTestResult(BaseModel):
+    """How many of my devices a test alert reached."""
+
+    sent: int

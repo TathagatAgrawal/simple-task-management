@@ -6,7 +6,7 @@ The app has three users and no IT support, and it should keep working for years 
 
 ### 1. Boring, few dependencies
 
-The runtime dependencies are FastAPI, Uvicorn, Jinja2 and tzdata (Windows has no built-in timezone database). That's all. The web client is one built file, `static/dist/app.js` (Preact, about 21 KB gzipped), committed to the repository and served by the app itself, not fetched from a CDN, so the app works even if a CDN is down or blocked.
+The runtime dependencies are FastAPI, Uvicorn, Jinja2, tzdata (Windows has no built-in timezone database) and pywebpush (it signs and encrypts the alerts that reach a phone when the board is closed; it brings `cryptography` and `requests` with it). That's all. The web client is one built file, `static/dist/app.js` (Preact, about 21 KB gzipped), committed to the repository and served by the app itself, not fetched from a CDN, so the app works even if a CDN is down or blocked.
 
 There is no ORM, no CSS framework, no Docker and no separate database server. The client is written in TypeScript with Preact and built with Vite, so developers need Node, **but the firm's PC never does**: the built bundle is committed, and CI fails if it doesn't match the source. Each of these was weighed against the same question: does it add something to install, update or debug on a Windows PC nobody maintains? Build tools are acceptable because they stay on developers' machines; anything that runs on the PC isn't, unless the firm would feel its absence.
 
@@ -58,7 +58,7 @@ Each of these is a reasonable feature, but none is needed yet. Don't add them wi
 | Projects, labels, priorities, sub-tasks | The due date is the priority, and title text covers the rest |
 | Manual card ordering within a column | Columns sort by due date, which is the order that matters for deadlines |
 | File attachments | Files live in the firm's existing folders and email |
-| Email, or Web Push when the browser is closed | In-app notifications and desktop alerts cover people who have the board open. Web Push would add a dependency and keys; see [design/notifications.html](design/notifications.html) |
+| Email | The bell and system alerts (Web Push, see [design/web-push.html](design/web-push.html)) cover it; email would add an outside service and credentials to look after |
 | WebSockets | Server-Sent Events already push "something changed" to every open page; two-way sockets would add complexity nobody needs |
 | Public internet access (Tailscale Funnel) | Task titles contain client names, so the app stays tailnet-only |
 | Mobile layout | Planned next; see the design plan's "Later versions" |

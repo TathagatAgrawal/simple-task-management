@@ -506,7 +506,8 @@ async function tbEnableAlerts() {
   Notifications and service workers need a secure connection. The deployment already publishes the app with <code>tailscale serve</code> (an HTTPS address) and the app already installs to the home screen, so nothing changes in <code>operations.md</code> for Phases 1 and 2 except explaining the permission prompt to staff.
 </div>
 
-<h2>6. Phase 3: alerts when the browser is closed (optional)</h2>
+<h2>6. Phase 3: alerts when the browser is closed</h2>
+<p><strong>Status: built.</strong> The final design, which differs in places (the signing key is kept in the database, banners can be generic, and a device with push shows no popup of its own), is in <a href="web-push.html">web-push.html</a>.</p>
 <p>Web Push lets the server wake a service worker even when no tab is open. It is the only way to reach an iPhone in someone's pocket. It comes with real costs for this project, which is why it is a separate, later decision.</p>
 <div class="tablewrap">
 <table>

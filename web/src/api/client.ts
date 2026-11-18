@@ -1,6 +1,6 @@
 // The only place that talks to the server: one typed function per API endpoint.
 import type {
-  Board, Me, Meta, Mode, Notification, Person, PersonCreated, Session, Settings, Summary, Task,
+  Board, Me, Meta, Mode, Notification, Person, PersonCreated, PushInfo, Session, Settings, Summary, Task,
   TaskIn, TaskPatch, TaskPatched, TemporaryPassword, Theme, Unread, UpdateInfo,
 } from "./types";
 
@@ -110,6 +110,12 @@ export const api = {
   readAll: () => request<void>("POST", "/notifications/read-all"),
   dismiss: (id: number) => request<void>("DELETE", `/notifications/${id}`),
   clearRead: () => request<void>("DELETE", "/notifications"),
+  push: (endpoint = "") => request<PushInfo>("GET", "/push" + q({ endpoint })),
+  setPushDetails: (details: boolean) => request<PushInfo>("PATCH", "/push", { details }),
+  savePush: (endpoint: string, keys: { p256dh: string; auth: string }) =>
+    request<void>("PUT", "/push/subscription", { endpoint, keys }),
+  removePush: (endpoint: string) => request<void>("POST", "/push/unsubscribe", { endpoint }),
+  testPush: () => request<{ sent: number }>("POST", "/push/test"),
   settings: () => request<Settings>("GET", "/me/notification-settings"),
   saveSettings: (changes: Record<string, Mode>) =>
     request<Settings>("PATCH", "/me/notification-settings", changes),

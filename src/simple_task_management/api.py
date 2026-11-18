@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import auth, dates, events, schemas, store, updates
+from . import auth, dates, events, push, schemas, store, updates
 from .config import Settings
 from .recurrence import REPEAT_LABELS
 
@@ -140,6 +140,7 @@ def build_api(
     throttle: auth.LoginThrottle,
     hub: events.Hub,
     checker: updates.Checker,
+    pusher: push.Pusher,
 ) -> FastAPI:
     """Build the JSON API app. ``create_app`` mounts it at ``/api`` and shares its helpers."""
     api = FastAPI(
@@ -485,7 +486,7 @@ def build_api(
             "read": n["read_at"] is not None,
             "announce": bool(n["announce"]),
             # Deadline and assignment changes stay on screen until dismissed; the rest fade.
-            "sticky": n["kind"] in store.STICKY_KINDS or "due date" in n["body"],
+            "sticky": store.is_sticky(n["kind"], n["body"]),
             "created_at": n["created_at"],
             "when": dates.stamp(n["created_at"], settings.tz, now_day),
             "due_label": label,
@@ -564,6 +565,53 @@ def build_api(
         store.dismiss_notifications(conn, user["id"], None)
         changed("notifications")
         return Response(status_code=204)
+
+    # ------------------------------------------------------------ push (alerts on a device)
+
+    def push_info(conn: sqlite3.Connection, user: sqlite3.Row, endpoint: str = "") -> dict:
+        """What the page needs to set up alerts on this device."""
+        return {
+            "enabled": settings.push_enabled,
+            "public_key": push.public_key(conn) if settings.push_enabled else "",
+            "details": store.push_details(conn, user["id"]),
+            "devices": len(store.push_subscriptions_for(conn, user["id"])),
+            "this_device": bool(endpoint)
+            and store.has_push_subscription(conn, user["id"], endpoint),
+        }
+
+    @api.get("/push", tags=["push"], response_model=schemas.PushInfo)
+    def get_push(conn: Conn, user: User, endpoint: str = "") -> dict:
+        """The key a browser needs to subscribe, my banner choice, and whether ``endpoint`` is saved."""
+        return push_info(conn, user, endpoint)
+
+    @api.patch("/push", tags=["push"], response_model=schemas.PushInfo)
+    def patch_push(conn: Conn, user: User, body: schemas.PushPatch) -> dict:
+        """Choose whether my banners show the task's title or only "a task changed"."""
+        store.set_push_details(conn, user["id"], body.details)
+        return push_info(conn, user)
+
+    @api.put("/push/subscription", status_code=204, tags=["push"])
+    def put_push_subscription(conn: Conn, user: User, body: schemas.PushSubscriptionIn) -> Response:
+        """Save this device so it receives alerts. Saving the same device again is harmless."""
+        store.save_push_subscription(
+            conn, user["id"], body.endpoint, body.keys.p256dh, body.keys.auth
+        )
+        return Response(status_code=204)
+
+    @api.post("/push/unsubscribe", status_code=204, tags=["push"])
+    def unsubscribe_push(conn: Conn, user: User, body: schemas.PushEndpointIn) -> Response:
+        """Stop alerts on this device. Only my own devices can be removed."""
+        store.delete_push_subscription(conn, body.endpoint, user["id"])
+        return Response(status_code=204)
+
+    @api.post("/push/test", tags=["push"], response_model=schemas.PushTestResult)
+    def test_push(conn: Conn, user: User) -> dict:
+        """Send a sample alert to all of my devices."""
+        if not settings.push_enabled:
+            raise store.UserError("Alerts when the board is closed are turned off on this server.")
+        if not store.push_subscriptions_for(conn, user["id"]):
+            raise store.UserError("None of your devices has alerts turned on yet.")
+        return {"sent": pusher.send_test(conn, user["id"])}
 
     # ------------------------------------------------------------ updates (admin)
 
