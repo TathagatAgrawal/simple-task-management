@@ -2,7 +2,7 @@
 
 A one-page task board for a three-person CA firm. Tasks have one or more assignees, a due date, an optional repeat schedule (weekly, monthly, quarterly, yearly) and a thread of updates. Everyone sees what's overdue, due today and due in the next three days. Cards move between To do / Doing / Done by drag-and-drop. One admin can add and remove people. Light, dark and system themes.
 
-It's a small FastAPI + SQLite app with server-rendered HTML and htmx — no build step, no Node, no separate database server. It runs on one always-on Windows PC and staff reach it privately over Tailscale.
+It's a small FastAPI + SQLite app with a JSON API and a TypeScript + Preact web client — no separate database server, and no Node on the firm's PC (the built client is committed). It runs on one always-on Windows PC and staff reach it privately over Tailscale.
 
 **Developers and AI agents: start at [`docs/README.md`](docs/README.md)** for the structure, design philosophy and conventions. The original design plan, with diagrams and mockups, is [`docs/design/plan.html`](docs/design/plan.html) (open it in a browser).
 
@@ -26,7 +26,7 @@ Sign in as `asha` (admin), `ravi` or `meera`. The demo password is printed by `s
 
 Work through this before handing it to the firm:
 
-1. **Two people at once.** Open a second browser (or a private window) and sign in as `ravi`. Move a card as Asha; Ravi's board catches up within 60 seconds, or immediately when that window regains focus.
+1. **Two people at once.** Open a second browser (or a private window) and sign in as `ravi`. Move a card as Asha; Ravi's board updates within a second or two, with no reload.
 2. **Drag-and-drop.** Drag cards between columns in Chrome, Edge and Safari. Each column stays sorted by due date.
 3. **Recurring tasks.** Drag the monthly "GSTR-3B" card to Done. A new card for next month appears in To do, and both threads link to each other (`#id` links).
 4. **Multiple assignees.** Open a task and toggle people on and off. The thread logs "added / removed". Use the "Showing" filter to check each person's view and "Unassigned".
@@ -43,19 +43,24 @@ uv run pytest                      # tests
 uv run ruff check .                # lint (includes docstring checks)
 uv run ruff format .               # format
 uv run simple-task-management serve --reload   # auto-restart on code changes
+npm --prefix web ci                # once: the web client's tools (needs Node)
+npm --prefix web run dev           # rebuild the web client whenever you save
+npm --prefix web run build         # type-check and build; commit the result
 ```
 
 CI (GitHub Actions, `.github/workflows/ci.yml`) runs on every push and pull request:
 
 - **Lint and format**: `ruff check` and `ruff format --check`.
 - **Tests** on Ubuntu, Windows (what the firm runs) and macOS (where it's developed).
+- **Web client**: type-checks and tests `web/`, and fails if the committed `schema.d.ts` or `static/dist/app.js` differ from a fresh build.
 - **Windows scripts**: every `deploy/windows/*.ps1` is parsed and run through PSScriptAnalyzer, since they can't be executed on a Mac.
 
 ### How it's put together
 
 | File | What it does |
 |---|---|
-| `src/simple_task_management/app.py` | FastAPI routes: the one page plus the HTML fragments htmx swaps in |
+| `src/simple_task_management/app.py` | The page shell, the user manual, and mounting the API |
+| `api.py`, `schemas.py`, `events.py` | The JSON API every screen uses, its exact response shapes, and live updates (Server-Sent Events) |
 | `store.py` | All SQL for tasks, assignees, updates and people; every change writes a history event in the same transaction |
 | `recurrence.py` | Next-due-date arithmetic (month-end anchoring) |
 | `dates.py` | "Today" in IST, summary buckets, labels |
@@ -63,7 +68,8 @@ CI (GitHub Actions, `.github/workflows/ci.yml`) runs on every push and pull requ
 | `backup.py` | Online SQLite backups, retention, the nightly loop |
 | `db.py`, `schema.sql` | Connection pragmas and migrations (`PRAGMA user_version`) |
 | `__init__.py` | The CLI: `serve`, `create-admin`, `set-password`, `backup`, `seed-demo` |
-| `templates/`, `static/` | Jinja templates, CSS (light/dark variables), htmx, and ~220 lines of JS for drag-and-drop, the task drawer and dialogs |
+| `templates/`, `static/` | The page shell and manual (Jinja), CSS (light/dark variables), and the built web client `static/dist/app.js` |
+| `web/` | The web client's source (TypeScript + Preact). Only developers need Node, to rebuild it |
 
 ## Deploying to the firm's Windows PC
 

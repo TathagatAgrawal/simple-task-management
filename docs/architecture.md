@@ -31,8 +31,10 @@ __init__.py (CLI) ─┐
 
 | Module | Owns | Must not |
 |---|---|---|
-| `app.py` | Routes, dependencies (DB connection, current user, admin check, CSRF), error handling, template rendering | Contain SQL or business rules |
-| `api.py` | The JSON API (`/api/...`): request/response shapes, bearer-or-cookie auth, JSON errors. A sub-app that `create_app` mounts, so its error handling and OpenAPI schema are separate from the HTML app's | Contain SQL or business rules (call `store.*`), render HTML |
+| `app.py` | The page shell, `/help`, the manifest, `/sw.js`, `/healthz`, the static files, and mounting the API | Contain SQL or business rules, render task data |
+| `api.py` | The JSON API (`/api/...`): request shapes, bearer-or-cookie auth, JSON errors, and announcing changes to the event hub. A sub-app that `create_app` mounts, so its error handling and OpenAPI schema are its own | Contain SQL or business rules (call `store.*`), render HTML |
+| `schemas.py` | The response models that make the OpenAPI schema (and so the client's generated types) exact | Contain logic |
+| `events.py` | The live-update hub and the Server-Sent Events stream | Know what the topics mean to the client |
 | `store.py` | All SQL; validation (`clean_title`, `parse_due`, ...); business rules (events, recurrence spawning, admin safety rails) | Know about HTTP, requests or templates |
 | `dates.py` | The firm's "today", summary buckets, display labels | Read the clock (it takes `now`/`today` as arguments) |
 | `recurrence.py` | `next_due()` and month arithmetic | Touch the database |
@@ -44,122 +46,107 @@ __init__.py (CLI) ─┐
 
 `create_app(settings, clock)` in `app.py` is a factory. Routes are defined inside it as closures, so each app instance (and each test) gets its own settings, clock, templates and login throttle without any global state.
 
-## The one-page pattern
+## The web client
 
-`GET /` returns `templates/index.html` in one of three states:
+`GET /` returns a tiny HTML shell (`templates/index.html`): the head tags, an empty `<div id="root">`, and a script tag for `static/dist/app.js`. Everything you see after that is a single-page client written in TypeScript with Preact, which talks to the server only through the JSON API under `/api` (see below). The server renders no task data as HTML. The one other server-rendered page is the user manual (`GET /help`, `help.html`): a static page linked from the top bar, the Me tab and the sign-in screen, readable without signing in and using the person's theme if they are. Its screenshots live in `static/help/`.
 
-1. **Signed out:** the login form.
-2. **Must change password:** the "choose your own password" form, shown after an admin creates or resets an account.
-3. **Signed in:** the app shell. This is a top bar, empty `#summary` and `#board` regions, the task drawer (a `<dialog id="task-dialog">` holding an empty `#panel`), and three more `<dialog>`s (New task, Change password, and People for admins).
+### Where the code lives
 
-The regions fill themselves with htmx:
-
-```html
-<section id="board" hx-get="/board" hx-include="#who, #done-days"
-         hx-trigger="load, filters-changed from:body, tasks-changed from:body,
-                     every 60s [!tbDragging], focus from:window">
+```
+web/                        the client's source (needs Node to build; the app does not)
+  package.json              scripts: types, build, dev, typecheck, test
+  vite.config.ts            builds src/main.tsx into ../src/simple_task_management/static/dist/app.js
+  scripts/export_openapi.py prints the API's OpenAPI schema (used by `npm run types`)
+  src/api/schema.d.ts       GENERATED from the schema; never edit by hand
+  src/api/types.ts          short names for the generated types
+  src/api/client.ts         one typed function per endpoint, CSRF header, error messages
+  src/state.ts              the shared state (signals) and every action that changes it
+  src/live.ts               the live-update connection (below)
+  src/alerts.ts             on-page messages and desktop alerts
+  src/gestures.ts           phone swipe, press-and-hold, sheet dismissal, keyboard height
+  src/components/*.tsx      one file per area: Board, TaskDrawer, Notifications, Dialogs, Chrome, Auth, Modal
 ```
 
-### The `tasks-changed` contract
+The built `static/dist/app.js` is **committed**, like the old vendored htmx file was, so the Windows PC runs the app with `git pull` and `uv` only; Node is for development. CI rebuilds the bundle and fails if the committed copy differs, so it can't go stale. `app.css` is unchanged and still styles everything: the components use the same class names the old templates did.
 
-This is the core idea. Learn it before changing any route.
+### How data flows
 
-- **Every endpoint that changes a task** returns `204 No Content` with the header `HX-Trigger: tasks-changed`. It does not return HTML.
-- htmx fires a `tasks-changed` event, which bubbles to `<body>`.
-- `#summary`, `#board` and the open task view all listen for `tasks-changed from:body` and re-fetch themselves.
+- `state.ts` holds signals (`board`, `summary`, `task`, `notifications`, `me`, `people` and so on). Components read them and re-render by themselves; there is no other client state to keep in sync.
+- Loading functions (`refreshBoard`, `refreshTask`, `refreshNotifications`, ...) fetch from the API and set the signals. Overlapping calls collapse, and the board waits while a card is being dragged or swiped.
+- Saving functions (`moveTask`, `saveTask`, `postUpdate`, ...) call the API, and the server's answer replaces the local copy. Moving a card updates the board first, then confirms with the server. A failed request shows its message in the red `#banner` and reloads the real state.
+- Every API error is `{"error": "message"}`; `client.ts` turns it into an `ApiError` whose message is already written for an accountant. A `401` makes the client show the sign-in form.
+- Date labels ("2 days late", "Tomorrow") are computed on the server in IST and sent ready-made, so the client contains no date logic.
 
-As a result, no endpoint needs to know which parts of the page to update, and adding a new kind of change needs no client-side wiring. The cost is a couple of small extra GETs, which is irrelevant at this scale.
+### Live updates
 
-Exceptions:
+Pages hold one **Server-Sent Events** connection, `GET /api/events` (`events.py`). When a request changes data, the API route calls `hub.publish("tasks", ...)`, and every connected page gets `data: ["tasks", "notifications"]` within a moment and refetches what it shows for those topics (`tasks` → board, summary and the open task; `notifications` → the bell and list; `people` → the people lists). The first message on a new connection is `["ready"]`, which makes the page refetch everything, so a page that was disconnected catches up. Nothing is stored or replayed.
 
-- **People endpoints** return the re-rendered `_people.html` fragment, because the dialog shows a one-time temporary password. They send `HX-Trigger: people-changed`, and `board.js` reloads the page when the dialog closes so the filter and assignee lists pick up the new people.
-- **Login, logout and the forced password change** answer with `HX-Redirect: /`.
-- **Validation errors** raise `store.UserError`, which becomes `400` with a plain-text message. `board.js` shows it in the red `#banner` and fires `tasks-changed` to re-sync, which also snaps back a card whose drag failed.
-- **401** answers htmx requests with `HX-Redirect: /` and normal requests with a `303` redirect to `/`.
-
-### Fragments
-
-| Route | Template | Notes |
-|---|---|---|
-| `GET /summary?who=` | `_summary.html` | Overdue / today / next 3 days. Each task is a clickable row; groups show 3 rows and hide the rest behind "Show N more" |
-| `GET /board?who=&done_days=` | `_board.html` + `_card.html` | Done shows the last 14 days by default |
-| `GET /tasks/{id}` | `_panel.html` | The task view. Returns an **empty body** if the task was deleted, which closes the drawer |
-| `GET /people` and the `POST /people...` routes | `_people.html` | Admin only |
-| `GET /help` | `help.html` | The user manual: a separate full page (linked from the top bar and login screen, opens in a new tab). Readable without signing in; uses the person's theme if they are. Screenshots live in `static/help/` |
-
-`who` is `me`, `all`, `none` (unassigned) or a user id. Unknown values fall back to `me`.
+- It is not WebSockets (one-way push is all that's needed) and not webhooks (a browser can't receive those).
+- The hub lives in the one app process; `publish` is safe to call from the request threads. Several quick changes are merged into one message, and a `: ping` comment every 25 seconds keeps proxies from closing a quiet connection.
+- Safety net: if the connection drops, the browser reconnects by itself, and the client also refetches everything every 60 seconds and whenever the window regains focus or becomes visible.
+- At shutdown `hub.close()` ends the streams, and `uvicorn.run(..., timeout_graceful_shutdown=3)` stops open connections from delaying a restart.
+- Tailscale Serve proxies the stream; if it were ever buffered, the 60-second refresh would still keep pages current.
 
 ### The task drawer
 
-Clicking a card or a summary item loads `_panel.html` into `#panel`, and `board.js` then opens the drawer: a modal `<dialog>` that slides in from the right *over* the board (like GitHub's project item view), so the columns never change width. It has the title in a header, and notes, the updates thread and the comment box in the main column. The drawer has a fixed height: only the thread (`.thread-scroll`) scrolls, so the comment box is always visible at the bottom. The thread opens scrolled to the newest update, and keeps your position across refreshes if you've scrolled up. Status, assignees, due date, repeat and delete are in a right sidebar. Clicking outside, ✕, or Esc closes it. Esc first leaves a text field, which saves it, and only a second Esc closes the drawer.
+Clicking a card or a summary item sets `openTaskId`, loads the task, and opens a modal `<dialog>` that slides in from the right *over* the board (like GitHub's project item view), so the columns never change width. It has the title in a header, and notes, the updates thread and the comment box in the main column. The drawer has a fixed height: only the thread scrolls, so the comment box is always visible at the bottom. The thread opens scrolled to the newest update, and stays where you left it if you've scrolled up. Status, assignees, due date, repeat and delete are in a right sidebar. Clicking outside, ✕, or Esc closes it. Esc first leaves a text field, which saves it, and only a second Esc closes the drawer.
 
-`_panel.html`'s root element re-fetches itself (`hx-swap="outerHTML"`) on `tasks-changed`, and every 60 seconds when `tbPanelIdle()` reports that nobody is typing in it. Because it re-renders after every change, `board.js` carries over what the server doesn't know: an unsent comment, which field had keyboard focus (found again by `name`), and expanded `<details>`. Title, notes, due date and repeat each post themselves on `change` (`hx-post` on the field, outside any form, so only that field is sent). The assignee chips are one small form, and the status control is a set of buttons.
-
-**htmx inheritance gotcha:** children inherit `hx-target`, `hx-swap` and `hx-include` from their ancestors. That's why every form, field and button in the task view sets `hx-swap="none"` explicitly, and why cards on the board send `who` and `done_days` query parameters. The server ignores the extra parameters.
+Each field keeps its own draft and saves itself when you leave it (title, notes, due date, repeat) or click it (assignees, status). A field follows the server's copy except while you are editing it, so a background refresh never overwrites what you are typing, and an unsent comment survives refreshes because the component is never recreated. The URL hash is `#task-N` while a task is open, and opening a link with one loads that task.
 
 ## The phone layout
 
-There is one page, not a separate mobile site. `app.css` has one `@media (max-width: 640px)` block that restyles the same templates, and `board.js` adds the touch behaviour. Everything mobile-only is hidden on larger screens.
+There is one page, not a separate mobile site. `app.css` has one `@media (max-width: 640px)` block that restyles the same markup, and `gestures.ts` adds the touch behaviour. Everything mobile-only is hidden on larger screens.
 
 | Desktop | Phone |
 |---|---|
-| Top bar with Help and the user menu | Compact bar: title, the "Showing" select as a pill, a round **+**. Help and the user menu become the **Me** tab (`#me-view` in `index.html`) |
-| Summary strip above the board | The **Coming up** tab. The overdue count is read from `data-overdue` on `.summary` into a badge on the tab |
-| Three columns | One column at a time, chosen with the segmented control (`.col-tabs`, rendered inside `_board.html` so its counts refresh with the board). The tab and status are `data-tab` / `data-seg` on `<body>` and are remembered in `localStorage` |
-| Drag-and-drop | Swipe a card right to move it on (To do → Doing → Done → To do), swipe left or press and hold for the `#card-actions` sheet (Open, Move to, Delete). Each card sits in a `.card-wrap` so a coloured hint shows behind it as it slides |
+| Top bar with Help, the bell and the user menu | Compact bar: title, the "Showing" select as a pill, a round **+**. Help, settings and sign out live in the **Me** tab (`MeView`) |
+| Summary strip above the board | The **Coming up** tab, with the overdue count as a badge |
+| The bell and its panel | The **Alerts** tab, with the unread count as a badge |
+| Three columns | One column at a time, chosen with the segmented control (`.col-tabs`). The tab and status are `data-tab` / `data-seg` on `<body>`, set from `state.ts` and remembered in `localStorage` |
+| Drag-and-drop | Swipe a card right to move it on (To do → Doing → Done → To do), swipe left or press and hold for the actions sheet (Open, Move to, Delete). Each card sits in a `.card-wrap` so a coloured hint shows behind it as it slides |
 | Task drawer on the right | The `<dialog>` becomes a full-screen page that slides in from the right. `.panel-body` is the one scroller and the composer is `position: sticky` at the bottom. Opening a task pushes a history entry, so the phone's Back button or back gesture closes it; the ‹ button and a swipe right from the left edge do the same |
 | Modal dialogs | Bottom sheets (drag the grab handle down, or tap the dimmed area, to dismiss) |
 
-The on-screen keyboard is handled with `window.visualViewport`: `board.js` sets `--kb` (the keyboard's height) while a field is focused, and the CSS lifts sheets and the task page above it. Inputs are 16 px so iOS doesn't zoom. Safe-area insets keep the tab bar clear of the home indicator.
+The on-screen keyboard is handled with `window.visualViewport`: `gestures.ts` sets `--kb` (the keyboard's height) while a field is focused, and the CSS lifts sheets and the task page above it. Inputs are 16 px so iOS doesn't zoom. Safe-area insets keep the tab bar clear of the home indicator.
 
 ### Installing it on a phone
 
 `index.html` links `/manifest.webmanifest` (served by `app.py` from `static/manifest.webmanifest`, `display: standalone`) and sets the Apple meta tags, so "Add to Home Screen" gives an icon that opens the app without browser chrome. Icons are in `static/icons/` (`icon.svg` is the source; the PNGs are full-bleed squares because iOS and Android apply their own rounding). The only service worker is `static/sw.js` (served at `/sw.js`), which exists solely to hand desktop alerts to the operating system and open the right task when one is clicked. It caches nothing, and the app doesn't work offline. The installed app on iOS has its own cookie storage, so each person signs in once more inside it.
 
-## The JSON API
-
 ## Notifications
 
-`store._notify` runs inside every task change (see [data-model.md](data-model.md)). The page reads them through three small pieces:
+`store._notify` runs inside every task change (see [data-model.md](data-model.md)). The client shows them in three ways:
 
-- `GET /notifications/badge` is the bell, swapped in place (`#bell-badge`) every 20 seconds, on focus and after changes. It carries `data-newest` and `data-unread`, and `board.js` compares `data-newest` with the last id this browser announced. Anything newer is fetched from `GET /api/notifications?unread=true&after=N` and shown as a toast whenever the page is visible, plus an OS notification (through `sw.js`) when the person has turned desktop alerts on and the window isn't focused.
-- `GET /notifications` is the list fragment, rendered into the bell's popover (`#notif-list`) and the phone's Alerts tab (`#alerts-list`). Its buttons post to `/notifications/{id}/read`, `/unread`, `/dismiss`, `/read-all` and `/clear-read`, which return `204` with `HX-Trigger: notifications-changed`. `store.py` filters every one by the signed-in person's id.
-- `GET /notifications/settings` is the settings form (opened from the user menu, the bell's "Settings" link, or the phone's Me tab). Each person picks, per kind of change, *Alert me*, *Inbox only* or *Off*. It saves on every click through `POST /me/notifications`, which answers with a short "Saved ✓". Only the "Alert me" ones are fetched for toasts and desktop alerts (`announce=true`); the bell and list show both "Alert me" and "Inbox only".
-- The JSON mirror is under `/api/notifications`, with the settings at `/api/me/notification-settings`.
+- **The bell and list** (`Notifications.tsx`): a popover under the bell on desktop and the Alerts tab on a phone. Each row can be opened (which marks it read), marked read or unread, or dismissed, and there are "Mark all read" and "Clear read". All of it is `/api/notifications` calls filtered by the signed-in person's id.
+- **Announcements** (`alerts.ts`): each browser remembers the newest notification id it has announced (a first visit announces nothing old). When something newer arrives that the person hasn't read and that isn't "inbox only" (`announce`), a message slides in on the page whenever the page is visible, plus a desktop (OS) notification through `sw.js` when the person has turned those on and the window isn't focused. Clicking either opens the task. The tab title shows the unread count.
+- **Settings**: a form (user menu, the bell's "Settings" link, or the phone's Me tab) where each person picks, per kind of change, *Alert me*, *Inbox only* or *Off*, saved on every click through `PATCH /api/me/notification-settings`.
 
 Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
 
-`/api` is a second interface to the same data, for any client that would rather not parse HTML fragments (another front end, a phone app, a script). It is additive: the htmx UI keeps using the HTML fragment routes above, and both call the same `store.*` functions, so rules and history events can't drift apart. The schema is published at `/api/openapi.json`.
+## The JSON API
+
+`/api` is the only way the client reads and changes data, and it is open to any other client too (a phone app, a script). It calls the same `store.*` functions every rule lives in, so rules and history events exist in one place. Every response has a model in `schemas.py`, so the schema published at `/api/openapi.json` describes each one exactly, and the client's TypeScript types are generated from it (`npm run types` in `web/`).
 
 | Area | Endpoints |
 |---|---|
-| Session | `POST /api/session` (returns a bearer `token`), `DELETE /api/session` |
-| Me | `GET /api/me`, `PATCH /api/me` (theme), `POST /api/me/password` |
+| Session | `POST /api/session` (returns a bearer `token` and sets the cookie), `DELETE /api/session` |
+| Me | `GET /api/me`, `PATCH /api/me` (theme), `POST /api/me/password`, `GET /api/meta` (labels, choices and the firm's date today) |
 | Board | `GET /api/board?who=&done_days=`, `GET /api/summary?who=` |
 | Tasks | `POST /api/tasks`, `GET`, `PATCH` and `DELETE /api/tasks/{id}`, `POST /api/tasks/{id}/updates` |
 | People | `GET /api/people`, and for admins `POST /api/people`, `PATCH /api/people/{id}`, `POST /api/people/{id}/reset-password`, `DELETE /api/people/{id}` |
+| Notifications | `GET /api/notifications?after=&unread=&announce=`, `GET /api/notifications/unread`, `POST .../{id}/read` and `/unread`, `POST .../read-all`, `DELETE .../{id}`, `DELETE /api/notifications` (clear read), `GET` and `PATCH /api/me/notification-settings` |
+| Live | `GET /api/events` (Server-Sent Events) |
 
-Conventions: JSON in, JSON out; errors are always `{"error": "message"}` with `400` (our rules), `401`, `403`, `404` or `422` (missing or unknown fields); unknown request fields are rejected. Send `Authorization: Bearer <token>`. The browser session cookie works too, but then unsafe requests need the `X-CSRF-Token` header (from `GET /api/me`); bearer requests need no CSRF header. `PATCH /api/tasks/{id}` takes any subset of title, notes, due, repeat, status and assignee_ids, validates all of them before applying any, and returns `next_task_id` when finishing a recurring task created the next occurrence. A person who still has a temporary password can only call `POST /api/me/password`.
+`who` is `me`, `all`, `none` (unassigned) or a user id. Unknown values fall back to `me`.
 
-## What `board.js` does (and only this)
-
-| Area | Behaviour |
-|---|---|
-| Errors | Shows `400` text inside the form when it has a `.form-error` slot (dialogs, set-password), otherwise in the `#banner` popover, which sits in the top layer so it shows above open dialogs. Also generic `5xx` text, and "Can't reach the server" on network errors |
-| Filter | Remembers the "Showing" choice in `localStorage` and fires `filters-changed` |
-| Summary | `tbToggleSummary()` expands a group's hidden rows, and re-applies that after the strip's background refreshes |
-| Task drawer | Opens it when a task loads into `#panel` (and after creating a task, via the `task-created` trigger), closes it on backdrop click / Esc / deletion, keeps `#task-N` in the URL, highlights the selected card, opens the task in the URL hash on load, and preserves draft, focus, expanded sections and thread scroll position across refreshes |
-| Drag-and-drop | Native HTML5 API. On drop it moves the card optimistically and calls `htmx.ajax("POST", "/tasks/N/move", ...)`; polling pauses while dragging (`window.tbDragging`) |
-| Dialogs | `tbOpenDialog(id)`; reloads the page after the People dialog closes if anything changed |
-| Phone layout | Tabs and the status control (`tbSetTab`, `tbSetSeg`), the overdue badge, swipe and press-and-hold on cards, the card actions sheet, edge-swipe and drag-down dismissal, history entries for the open task, and the keyboard height (`--kb`). Touch only (`pointerType !== "mouse"`), and only under 640 px |
-| Theme | `tbSetTheme()` flips `data-theme` on `<html>` immediately. The server persists it via `POST /me/theme` |
+Conventions: JSON in, JSON out; errors are always `{"error": "message"}` with `400` (our rules), `401`, `403`, `404` or `422` (missing or unknown fields); unknown request fields are rejected. The browser uses its session cookie, and then unsafe requests need the `X-CSRF-Token` header (from `GET /api/me`); other clients can send `Authorization: Bearer <token>` and need no CSRF header. `PATCH /api/tasks/{id}` takes any subset of title, notes, due, repeat, status and assignee_ids, validates all of them before applying any, and returns `next_task_id` when finishing a recurring task created the next occurrence. A person who still has a temporary password can only call `POST /api/me/password`.
 
 ## Security model (summary)
 
 - **Network:** the app listens only on localhost, and Tailscale Serve handles HTTPS. Everyone at the firm shares one Tailscale login, so Tailscale can't tell people apart. That's why the app has its own accounts.
 - **Sessions:** a random 32-byte token in an `HttpOnly`, `SameSite=Lax` cookie (with `Secure` when the request is HTTPS), stored in the `sessions` table with a 30-day expiry.
-- **CSRF:** each session has its own `csrf_token`. `index.html` puts it in `hx-headers` on `<body>`, so every htmx request sends `X-CSRF-Token`, and `require_user` checks it on every POST. `/login` requires the `HX-Request` header instead, because a cross-site form can't set custom headers.
+- **CSRF:** each session has its own `csrf_token`, returned by `GET /api/me`. The client sends it as `X-CSRF-Token` on every write, and the API checks it for cookie sessions. Sign-in only accepts JSON, which a cross-site form can't send.
 - **Passwords:** stdlib `hashlib.scrypt` with a per-user salt. Repeated failed logins for the same username are slowed down (`LoginThrottle`).
-- **Output escaping:** Jinja autoescapes everything. Where we build `Markup` by hand (the `link_tasks` filter and the people flash messages), we escape user text first. Keep it that way.
+- **Output escaping:** Preact escapes everything it renders. The API returns user text untouched (never HTML), and the client turns `#42` references into links by splitting the text, never by building HTML strings. Keep it that way: don't use `dangerouslySetInnerHTML` for anything a person typed.
 
 More detail is in [operations.md](operations.md).

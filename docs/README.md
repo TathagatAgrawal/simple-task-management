@@ -15,7 +15,7 @@ Three people share a board of tasks. Each task has a title, notes, one or more a
 | # | Doc | Read it to learn |
 |---|---|---|
 | 1 | [philosophy.md](philosophy.md) | The design principles, what we deliberately don't build, and how to judge a new feature |
-| 2 | [architecture.md](architecture.md) | How a request flows, the "one page + htmx fragments" pattern, and what each module owns |
+| 2 | [architecture.md](architecture.md) | How a request flows, the TypeScript client and the JSON API it uses, live updates, and what each module owns |
 | 3 | [data-model.md](data-model.md) | The five tables, their invariants, recurring tasks, history events, dates and timezones, migrations |
 | 4 | [development.md](development.md) | Setup, commands, code conventions, step-by-step recipes for common changes, testing, and known gotchas |
 | 5 | [operations.md](operations.md) | How it's deployed and run on Windows, the security model, backups and recovery |
@@ -28,8 +28,10 @@ The root [README.md](../README.md) is the user-facing guide: how to try the app 
 
 ```
 src/simple_task_management/
-  app.py          routes: the one page + HTML fragments          (HTTP layer, no SQL)
+  app.py          the page shell, /help, manifest, /sw.js          (HTTP layer, no SQL)
   api.py          the JSON API under /api, mounted by app.py     (HTTP layer, no SQL)
+  schemas.py      response models: the API's exact shape         (types for the client)
+  events.py       live updates: the hub + Server-Sent Events
   store.py        all SQL for tasks, assignees, updates, people   (data + business rules)
   recurrence.py   next-due-date arithmetic                        (pure functions)
   dates.py        "today" in IST, buckets, labels                 (pure functions)
@@ -39,9 +41,9 @@ src/simple_task_management/
   db.py           connection pragmas + migrations
   schema.sql      the schema (version 1)
   __init__.py     CLI: serve, create-admin, set-password, backup, seed-demo
-  templates/      index.html (the page) + _fragments.html (swapped in by htmx) + _icons.html
-                  + help.html (the user manual, a separate page)
-  static/         app.css (light/dark), board.js (~560 lines), sw.js (desktop alerts), htmx.min.js (vendored), help/ (manual screenshots)
+  templates/      index.html (a small shell) + help.html (the user manual, server-rendered)
+  static/         app.css (light/dark), dist/app.js (the BUILT client, committed), sw.js (desktop alerts), help/ (manual screenshots)
+web/              the client's source: TypeScript + Preact (needs Node to build, never to run)
 tests/            pytest; one file per area; fixed clock in conftest.py
 deploy/windows/   PowerShell scripts for install, status, restart, update
 docs/             you are here
@@ -51,7 +53,8 @@ docs/             you are here
 
 ```bash
 uv sync                                              # install
-uv run pytest                                        # 120 tests, ~5 seconds
+uv run pytest                                        # ~125 tests, ~5 seconds
+npm --prefix web ci && npm --prefix web run build    # the web client (only if you change web/)
 uv run ruff check . && uv run ruff format .          # lint + format (CI enforces both)
 DATA_DIR=demo-data uv run simple-task-management seed-demo
 DATA_DIR=demo-data uv run simple-task-management serve --reload

@@ -1,6 +1,6 @@
 """Tests for notifications: who is told, the inbox actions, and the JSON mirror."""
 
-from conftest import new_task
+from conftest import move, new_task
 
 from simple_task_management import db, store
 
@@ -44,9 +44,9 @@ def test_every_change_notifies_the_other_assignees(asha, ravi, conn, users):
     conn.commit()
     task_id = _first_task(conn)
 
-    ravi.post(f"/tasks/{task_id}", data={"title": "Renamed"})
-    ravi.post(f"/tasks/{task_id}/move", data={"status": "doing"})
-    ravi.post(f"/tasks/{task_id}/updates", data={"body": "Started on it"})
+    ravi.patch(f"/api/tasks/{task_id}", json={"title": "Renamed"})
+    move(ravi, task_id, "doing")
+    ravi.post(f"/api/tasks/{task_id}/updates", json={"body": "Started on it"})
 
     assert _rows(conn) == [
         ("asha", "renamed this from “A task”"),
@@ -63,7 +63,7 @@ def test_unchanged_save_notifies_nobody(asha, conn, users):
     new_task(asha, title="Same", assignee_ids=[users["ravi"]])
     conn.execute("DELETE FROM notifications")
     conn.commit()
-    asha.post(f"/tasks/{_first_task(conn)}", data={"title": "Same"})
+    asha.patch(f"/api/tasks/{_first_task(conn)}", json={"title": "Same"})
     assert _rows(conn) == []
 
 
@@ -72,9 +72,9 @@ def test_set_assignees_tells_added_removed_and_kept(asha, conn, users):
     new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
     conn.execute("DELETE FROM notifications")
     conn.commit()
-    asha.post(
-        f"/tasks/{_first_task(conn)}/assignees",
-        data={"assignee_ids": [users["asha"], users["ravi"]]},
+    asha.patch(
+        f"/api/tasks/{_first_task(conn)}",
+        json={"assignee_ids": [users["asha"], users["ravi"]]},
     )
     assert sorted(_rows(conn)) == [
         ("meera", "removed you from this task"),
@@ -87,20 +87,21 @@ def test_delete_notifies_assignees_and_keeps_the_title(asha, ravi, conn, users):
     new_task(asha, title="Doomed", assignee_ids=[users["ravi"]])
     conn.execute("DELETE FROM notifications")
     conn.commit()
-    asha.post(f"/tasks/{_first_task(conn)}/delete")
+    asha.delete(f"/api/tasks/{_first_task(conn)}")
     row = conn.execute("SELECT task_id, task_title, body FROM notifications").fetchone()
     assert tuple(row) == (None, "Doomed", "deleted this task")
-    html = ravi.get("/notifications").text
-    assert "Doomed" in html and "deleted this task" in html
+    (item,) = ravi.get("/api/notifications").json()
+    assert item["task_id"] is None and item["title"] == "Doomed"
+    assert item["text"] == "Asha Iyer deleted this task"
 
 
 def test_notifications_are_private(asha, ravi, conn, users):
     """One person cannot read, change or delete another person's notifications."""
     new_task(asha, assignee_ids=[users["ravi"]])
     (nid,) = [r[0] for r in conn.execute("SELECT id FROM notifications")]
-    assert "assigned you a new task" not in asha.get("/notifications").text
-    asha.post(f"/notifications/{nid}/read")
-    asha.post(f"/notifications/{nid}/dismiss")
+    assert asha.get("/api/notifications").json() == []
+    asha.post(f"/api/notifications/{nid}/read")
+    asha.delete(f"/api/notifications/{nid}")
     row = conn.execute("SELECT read_at FROM notifications WHERE id = ?", (nid,)).fetchone()
     assert row is not None and row[0] is None
 
@@ -111,28 +112,29 @@ def test_read_unread_dismiss_and_bulk_actions(asha, ravi, conn, users):
         new_task(asha, title=title, assignee_ids=[users["ravi"]])
     ids = [r[0] for r in conn.execute("SELECT id FROM notifications ORDER BY id")]
 
-    r = ravi.post(f"/notifications/{ids[0]}/read")
-    assert r.status_code == 204 and r.headers["HX-Trigger"] == "notifications-changed"
-    assert store.notification_counts(conn, users["ravi"]) == (2, ids[-1])
-    ravi.post(f"/notifications/{ids[0]}/unread")
-    assert store.notification_counts(conn, users["ravi"])[0] == 3
+    r = ravi.post(f"/api/notifications/{ids[0]}/read")
+    assert r.status_code == 204
+    assert ravi.get("/api/notifications/unread").json() == {"unread": 2, "newest": ids[-1]}
+    ravi.post(f"/api/notifications/{ids[0]}/unread")
+    assert ravi.get("/api/notifications/unread").json()["unread"] == 3
 
-    ravi.post(f"/notifications/{ids[1]}/dismiss")
-    assert store.notification_counts(conn, users["ravi"])[0] == 2
-    ravi.post("/notifications/read-all")
-    assert store.notification_counts(conn, users["ravi"])[0] == 0
-    ravi.post("/notifications/clear-read")
+    ravi.delete(f"/api/notifications/{ids[1]}")
+    assert ravi.get("/api/notifications/unread").json()["unread"] == 2
+    ravi.post("/api/notifications/read-all")
+    assert ravi.get("/api/notifications/unread").json()["unread"] == 0
+    ravi.delete("/api/notifications")
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 
-def test_badge_and_list_fragments(asha, ravi, users):
-    """The bell shows the unread count and newest id; the list shows who did what."""
-    new_task(asha, title="GSTR-3B", assignee_ids=[users["ravi"]])
-    badge = ravi.get("/notifications/badge").text
-    assert 'data-unread="1"' in badge and 'aria-label="Notifications, 1 unread"' in badge
-    listing = ravi.get("/notifications").text
-    assert "Asha Iyer" in listing and "GSTR-3B" in listing and "Unread." in listing
-    assert "all caught up" in asha.get("/notifications").text
+def test_list_shows_who_did_what_with_a_ready_made_label(asha, ravi, users):
+    """Each notification carries the actor, the task title, a due chip and a time label."""
+    new_task(asha, title="GSTR-3B", due="2026-11-12", assignee_ids=[users["ravi"]])
+    (item,) = ravi.get("/api/notifications").json()
+    assert item["actor"] == "Asha Iyer" and item["title"] == "GSTR-3B"
+    assert item["due_label"] == "2 days late" and item["due_tone"] == "red"
+    assert item["when"]
+    assert ravi.get("/api/notifications/unread").json()["unread"] == 1
+    assert asha.get("/api/notifications").json() == []
 
 
 def test_old_read_notifications_are_pruned(asha, conn, users):
@@ -163,13 +165,6 @@ def test_migration_adds_the_table_to_a_version_1_database(tmp_path):
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 
-def test_service_worker_is_served_from_the_root(asha):
-    """The service worker lives at /sw.js so its scope covers the whole site."""
-    r = asha.get("/sw.js")
-    assert r.status_code == 200 and "javascript" in r.headers["content-type"]
-    assert "notificationclick" in r.text
-
-
 def _kinds(conn):
     """Every notification as ``(recipient username, kind, announce)``, oldest first."""
     return [
@@ -185,11 +180,11 @@ def test_each_change_has_its_own_kind(asha, conn, users):
     """Creating, editing, moving, commenting, removing and deleting each use their own kind."""
     new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
     task_id = _first_task(conn)
-    asha.post(f"/tasks/{task_id}", data={"title": "Renamed"})
-    asha.post(f"/tasks/{task_id}/move", data={"status": "doing"})
-    asha.post(f"/tasks/{task_id}/updates", data={"body": "Hello"})
-    asha.post(f"/tasks/{task_id}/assignees", data={"assignee_ids": [users["ravi"]]})
-    asha.post(f"/tasks/{task_id}/delete")
+    asha.patch(f"/api/tasks/{task_id}", json={"title": "Renamed"})
+    move(asha, task_id, "doing")
+    asha.post(f"/api/tasks/{task_id}/updates", json={"body": "Hello"})
+    asha.patch(f"/api/tasks/{task_id}", json={"assignee_ids": [users["ravi"]]})
+    asha.delete(f"/api/tasks/{task_id}")
     kinds = [k for _, k, _ in _kinds(conn)]
     assert kinds == [
         "assigned", "assigned",
@@ -210,10 +205,10 @@ def test_default_settings_alert_for_everything(conn, users):
 
 def test_off_skips_only_that_person_and_kind(asha, ravi, conn, users):
     """Turning a kind off stops it for that person alone; their other kinds still arrive."""
-    ravi.post("/me/notifications", data={"mode_comment": "off"})
+    ravi.patch("/api/me/notification-settings", json={"comment": "off"})
     new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
     task_id = _first_task(conn)
-    asha.post(f"/tasks/{task_id}/updates", data={"body": "Hello"})
+    asha.post(f"/api/tasks/{task_id}/updates", json={"body": "Hello"})
     got = {(u, k) for u, k, _ in _kinds(conn)}
     assert ("meera", "comment") in got and ("ravi", "comment") not in got
     assert ("ravi", "assigned") in got
@@ -221,39 +216,38 @@ def test_off_skips_only_that_person_and_kind(asha, ravi, conn, users):
 
 def test_inbox_only_is_listed_but_not_announced(asha, ravi, conn, users):
     """The inbox-only mode keeps a notification in the bell but out of pop-ups and desktop alerts."""
-    ravi.post("/me/notifications", data={"mode_assigned": "inbox"})
+    ravi.patch("/api/me/notification-settings", json={"assigned": "inbox"})
     new_task(asha, assignee_ids=[users["ravi"]])
     assert _kinds(conn) == [("ravi", "assigned", 0)]
-    assert "assigned you a new task" in ravi.get("/notifications").text
+    assert ravi.get("/api/notifications").json()[0]["announce"] is False
     assert ravi.get("/api/notifications?unread=true").json() != []
     assert ravi.get("/api/notifications?unread=true&announce=true").json() == []
     # The bell still counts it as unread.
-    assert 'data-unread="1"' in ravi.get("/notifications/badge").text
+    assert ravi.get("/api/notifications/unread").json()["unread"] == 1
 
 
 def test_saving_settings_and_going_back_to_default(ravi, conn, users):
-    """The form saves a choice; choosing "Alert me" again removes the stored row."""
-    r = ravi.post("/me/notifications", data={"mode_moved": "inbox", "mode_comment": "off"})
-    assert r.status_code == 200 and "Saved" in r.text
-    assert store.notification_settings(conn, users["ravi"])["moved"] == "inbox"
-    assert store.notification_settings(conn, users["ravi"])["comment"] == "off"
-    ravi.post("/me/notifications", data={"mode_moved": "alert"})
+    """A saved choice is returned; choosing "Alert me" again removes the stored row."""
+    r = ravi.patch("/api/me/notification-settings", json={"moved": "inbox", "comment": "off"})
+    assert r.status_code == 200
+    assert r.json()["moved"] == "inbox" and r.json()["comment"] == "off"
+    assert r.json()["assigned"] == "alert"
+    r = ravi.patch("/api/me/notification-settings", json={"moved": "alert"})
+    assert r.json()["moved"] == "alert"
     assert conn.execute("SELECT COUNT(*) FROM notification_settings").fetchone()[0] == 1
-    page = ravi.get("/notifications/settings").text
-    assert 'name="mode_comment" value="off" checked' in page
-    assert 'name="mode_assigned" value="alert" checked' in page
+    assert ravi.get("/api/me/notification-settings").json()["comment"] == "off"
 
 
 def test_invalid_setting_is_refused(ravi, conn, users):
-    """An unknown mode is rejected and nothing is saved."""
-    r = ravi.post("/me/notifications", data={"mode_comment": "shout"})
-    assert r.status_code == 400
+    """An unknown mode or kind is rejected and nothing is saved."""
+    assert ravi.patch("/api/me/notification-settings", json={"comment": "shout"}).status_code == 400
+    assert ravi.patch("/api/me/notification-settings", json={"nope": "off"}).status_code == 400
     assert conn.execute("SELECT COUNT(*) FROM notification_settings").fetchone()[0] == 0
 
 
 def test_settings_are_per_person(asha, ravi, conn, users):
     """One person's choices never change another's."""
-    ravi.post("/me/notifications", data={"mode_assigned": "off"})
+    ravi.patch("/api/me/notification-settings", json={"assigned": "off"})
     assert store.notification_settings(conn, users["asha"])["assigned"] == "alert"
     assert store.notification_settings(conn, users["meera"])["assigned"] == "alert"
 

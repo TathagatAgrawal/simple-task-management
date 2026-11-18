@@ -17,11 +17,11 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import auth, dates, store
+from . import auth, dates, events, schemas, store
 from .config import Settings
 from .recurrence import REPEAT_LABELS
 
@@ -132,6 +132,7 @@ def build_api(
     today: Callable[[], date],
     get_conn: Callable[[], Iterator[sqlite3.Connection]],
     throttle: auth.LoginThrottle,
+    hub: events.Hub,
 ) -> FastAPI:
     """Build the JSON API app. ``create_app`` mounts it at ``/api`` and shares its helpers."""
     api = FastAPI(
@@ -142,6 +143,10 @@ def build_api(
         openapi_url="/openapi.json",
     )
     Conn = Annotated[sqlite3.Connection, Depends(get_conn)]
+
+    def changed(*topics: str) -> None:
+        """Tell every open page that something changed, so it refreshes at once."""
+        hub.publish(*topics)
 
     # ------------------------------------------------------------ errors
 
@@ -211,7 +216,7 @@ def build_api(
             "csrf_token": user["csrf_token"],
         }
 
-    @api.post("/session", tags=["session"])
+    @api.post("/session", tags=["session"], response_model=schemas.Session)
     def sign_in(request: Request, response: Response, conn: Conn, body: LoginIn) -> dict:
         """Check credentials and start a 30-day session. Returns the bearer token."""
         throttle.wait(body.username)
@@ -233,12 +238,12 @@ def build_api(
         response.delete_cookie(auth.COOKIE_NAME)
         return response
 
-    @api.get("/me", tags=["me"])
+    @api.get("/me", tags=["me"], response_model=schemas.Me)
     def me(user: Signed) -> dict:
         """The signed-in user."""
         return me_json(user)
 
-    @api.patch("/me", tags=["me"])
+    @api.patch("/me", tags=["me"], response_model=schemas.Me)
     def update_me(conn: Conn, user: User, body: MeIn) -> dict:
         """Change your theme (``system``, ``light`` or ``dark``)."""
         store.set_theme(conn, user["id"], body.theme)
@@ -255,6 +260,35 @@ def build_api(
             raise store.UserError("The two new passwords don't match.")
         store.set_password(conn, user["id"], body.new_password)
         return Response(status_code=204)
+
+    @api.get("/meta", tags=["me"], response_model=schemas.Meta)
+    def meta(user: User) -> dict:
+        """Labels and choices the page needs, and the firm's date today."""
+        return {
+            "today": today(),
+            "statuses": [{"value": v, "label": lbl} for v, lbl in store.STATUS_LABELS.items()],
+            "repeats": [{"value": v, "label": lbl} for v, lbl in REPEAT_LABELS.items()],
+            "notification_kinds": [
+                {"kind": k, "label": lbl, "help": hlp}
+                for k, (lbl, hlp) in store.NOTIFICATION_KINDS.items()
+            ],
+            "notification_modes": [
+                {"value": v, "label": lbl} for v, lbl in store.NOTIFICATION_MODES.items()
+            ],
+        }
+
+    @api.get("/events", tags=["live"], response_class=StreamingResponse)
+    async def live_events(user: User) -> StreamingResponse:
+        """A Server-Sent Events stream: ``data: ["tasks", ...]`` whenever those topics change.
+
+        Topics are ``tasks``, ``notifications`` and ``people``; the first message is ``["ready"]``.
+        A page refetches what it shows for each topic. Comment lines (``: ping``) keep it alive.
+        """
+        return StreamingResponse(
+            events.stream(hub),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     # ------------------------------------------------------------ board and tasks
 
@@ -292,7 +326,12 @@ def build_api(
                 for u in updates
             ],
             "series": [
-                {"id": s["id"], "due": s["due_date"], "status": s["status"]}
+                {
+                    "id": s["id"],
+                    "due": s["due_date"],
+                    "due_short": dates.short_date(date.fromisoformat(s["due_date"]), now_day),
+                    "status": s["status"],
+                }
                 for s in store.series(conn, task)
             ],
         }
@@ -304,19 +343,22 @@ def build_api(
             raise HTTPException(404, "That task doesn't exist.")
         return task
 
-    @api.get("/summary", tags=["board"])
+    @api.get("/summary", tags=["board"], response_model=schemas.Summary)
     def summary(conn: Conn, user: User, who: str = "me") -> dict:
         """Open tasks that are overdue, due today, or due in the next three days.
 
         ``who`` is ``me``, ``all``, ``none`` (unassigned) or a person's id.
         """
-        buckets = store.summary(conn, who=who, me=user["id"], today=today())
+        now_day = today()
+        buckets = store.summary(conn, who=who, me=user["id"], today=now_day)
         return {
             key: [
                 {
                     "id": t["id"],
                     "title": t["title"],
                     "due": t["due"].isoformat(),
+                    "due_label": dates.due_label(t["due"], now_day)[0],
+                    "due_tone": dates.due_label(t["due"], now_day)[1],
                     "repeat": t["repeat"],
                 }
                 for t in tasks
@@ -324,7 +366,7 @@ def build_api(
             for key, tasks in buckets.items()
         }
 
-    @api.get("/board", tags=["board"])
+    @api.get("/board", tags=["board"], response_model=schemas.Board)
     def board(conn: Conn, user: User, who: str = "me", done_days: int = 14) -> dict:
         """The three columns of cards: ``todo``, ``doing`` and ``done`` (last ``done_days`` days)."""
         columns = store.board(
@@ -332,7 +374,7 @@ def build_api(
         )
         return {status: [card_json(c) for c in cards] for status, cards in columns.items()}
 
-    @api.post("/tasks", status_code=201, tags=["tasks"])
+    @api.post("/tasks", status_code=201, tags=["tasks"], response_model=schemas.Task)
     def create_task(conn: Conn, user: User, body: TaskIn) -> dict:
         """Create a task."""
         task_id = store.create_task(
@@ -344,14 +386,15 @@ def build_api(
             repeat=body.repeat,
             assignee_ids=body.assignee_ids,
         )
+        changed("tasks", "notifications")
         return task_json(conn, store.get_task(conn, task_id))
 
-    @api.get("/tasks/{task_id}", tags=["tasks"])
+    @api.get("/tasks/{task_id}", tags=["tasks"], response_model=schemas.Task)
     def get_task(conn: Conn, user: User, task_id: int) -> dict:
         """One task with its updates."""
         return task_json(conn, existing_task(conn, task_id))
 
-    @api.patch("/tasks/{task_id}", tags=["tasks"])
+    @api.patch("/tasks/{task_id}", tags=["tasks"], response_model=schemas.TaskPatched)
     def patch_task(conn: Conn, user: User, task_id: int, body: TaskPatch) -> dict:
         """Change any of title, notes, due, repeat, status and assignees.
 
@@ -386,6 +429,7 @@ def build_api(
         next_id = None
         if changes.get("status") is not None:
             next_id = store.move_task(conn, user, task_id, changes["status"], today())
+        changed("tasks", "notifications")
         return {**task_json(conn, store.get_task(conn, task_id)), "next_task_id": next_id}
 
     @api.delete("/tasks/{task_id}", status_code=204, tags=["tasks"])
@@ -393,30 +437,48 @@ def build_api(
         """Delete a task and all its updates, for good."""
         existing_task(conn, task_id)
         store.delete_task(conn, user, task_id)
+        changed("tasks", "notifications")
         return Response(status_code=204)
 
-    @api.post("/tasks/{task_id}/updates", status_code=201, tags=["tasks"])
+    @api.post(
+        "/tasks/{task_id}/updates", status_code=201, tags=["tasks"], response_model=schemas.Task
+    )
     def add_update(conn: Conn, user: User, task_id: int, body: UpdateIn) -> dict:
         """Post a comment. Returns the task with its refreshed updates."""
         existing_task(conn, task_id)
         store.add_comment(conn, user, task_id, body.body)
+        changed("tasks", "notifications")
         return task_json(conn, store.get_task(conn, task_id))
 
     # ------------------------------------------------------------ notifications
 
     def notification_json(n: sqlite3.Row) -> dict:
         """One notification, with ready-made ``text`` and ``detail`` lines for showing it."""
+        now_day = today()
         actor = n["actor_name"] or "Someone"
+        label, tone = (
+            dates.due_label(date.fromisoformat(n["due_date"]), now_day)
+            if n["due_date"] and n["status"] != "done"
+            else (None, "")
+        )
         return {
             "id": n["id"],
             "task_id": n["task_id"],
+            "kind": n["kind"],
+            "actor": actor,
+            "body": n["body"],
+            "title": n["title"],
             "text": f"{actor} {n['body']}",
             "detail": n["title"],
             "read": n["read_at"] is not None,
+            "announce": bool(n["announce"]),
             "created_at": n["created_at"],
+            "when": dates.stamp(n["created_at"], settings.tz, now_day),
+            "due_label": label,
+            "due_tone": tone,
         }
 
-    @api.get("/notifications", tags=["notifications"])
+    @api.get("/notifications", tags=["notifications"], response_model=list[schemas.Notification])
     def notifications(
         conn: Conn, user: User, after: int = 0, unread: bool = False, announce: bool = False
     ) -> list[dict]:
@@ -429,18 +491,26 @@ def build_api(
         )
         return [notification_json(n) for n in found]
 
-    @api.get("/me/notification-settings", tags=["notifications"])
+    @api.get(
+        "/me/notification-settings",
+        tags=["notifications"],
+        response_model=dict[str, schemas.Mode],
+    )
     def get_notification_settings(conn: Conn, user: User) -> dict:
         """What I get notified about: ``{kind: "alert" | "inbox" | "off"}`` for every kind."""
         return store.notification_settings(conn, user["id"])
 
-    @api.patch("/me/notification-settings", tags=["notifications"])
+    @api.patch(
+        "/me/notification-settings",
+        tags=["notifications"],
+        response_model=dict[str, schemas.Mode],
+    )
     def patch_notification_settings(conn: Conn, user: User, body: dict[str, str]) -> dict:
         """Change some of my settings, e.g. ``{"comment": "inbox", "moved": "off"}``."""
         store.set_notification_settings(conn, user["id"], body)
         return store.notification_settings(conn, user["id"])
 
-    @api.get("/notifications/unread", tags=["notifications"])
+    @api.get("/notifications/unread", tags=["notifications"], response_model=schemas.Unread)
     def notifications_unread(conn: Conn, user: User) -> dict:
         """How many are unread, and the id of the newest one."""
         unread, newest = store.notification_counts(conn, user["id"])
@@ -450,58 +520,69 @@ def build_api(
     def notifications_read_all(conn: Conn, user: User) -> Response:
         """Mark all my notifications as read."""
         store.set_notification_read(conn, user["id"], None, read=True)
+        changed("notifications")
         return Response(status_code=204)
 
     @api.post("/notifications/{notification_id}/read", status_code=204, tags=["notifications"])
     def notification_read(conn: Conn, user: User, notification_id: int) -> Response:
         """Mark one notification as read."""
         store.set_notification_read(conn, user["id"], notification_id, read=True)
+        changed("notifications")
         return Response(status_code=204)
 
     @api.post("/notifications/{notification_id}/unread", status_code=204, tags=["notifications"])
     def notification_unread(conn: Conn, user: User, notification_id: int) -> Response:
         """Mark one notification as unread."""
         store.set_notification_read(conn, user["id"], notification_id, read=False)
+        changed("notifications")
         return Response(status_code=204)
 
     @api.delete("/notifications/{notification_id}", status_code=204, tags=["notifications"])
     def notification_dismiss(conn: Conn, user: User, notification_id: int) -> Response:
         """Delete one notification."""
         store.dismiss_notifications(conn, user["id"], notification_id)
+        changed("notifications")
         return Response(status_code=204)
 
     @api.delete("/notifications", status_code=204, tags=["notifications"])
     def notifications_clear_read(conn: Conn, user: User) -> Response:
         """Delete every notification I've already read."""
         store.dismiss_notifications(conn, user["id"], None)
+        changed("notifications")
         return Response(status_code=204)
 
     # ------------------------------------------------------------ people
 
-    @api.get("/people", tags=["people"])
+    @api.get("/people", tags=["people"], response_model=list[schemas.Person])
     def people(conn: Conn, user: User) -> list[dict]:
         """Everyone who can sign in, alphabetically."""
         return [person_json(p) for p in store.active_people(conn)]
 
-    @api.post("/people", status_code=201, tags=["people"])
+    @api.post("/people", status_code=201, tags=["people"], response_model=schemas.PersonCreated)
     def add_person(conn: Conn, admin: Admin, body: PersonIn) -> dict:
         """Add a person (admins only). The temporary password is shown only in this response."""
         password = auth.temp_password()
         user_id = store.create_user(conn, body.name, body.username, password)
+        changed("people")
         return {
             "person": person_json(store.get_user(conn, user_id)),
             "temporary_password": password,
         }
 
-    @api.patch("/people/{user_id}", tags=["people"])
+    @api.patch("/people/{user_id}", tags=["people"], response_model=schemas.Person)
     def update_person(conn: Conn, admin: Admin, user_id: int, body: PersonPatch) -> dict:
         """Grant or revoke admin rights (admins only)."""
         if store.get_user(conn, user_id) is None:
             raise HTTPException(404, "That person doesn't exist.")
         store.set_admin(conn, user_id, body.is_admin)
+        changed("people")
         return person_json(store.get_user(conn, user_id))
 
-    @api.post("/people/{user_id}/reset-password", tags=["people"])
+    @api.post(
+        "/people/{user_id}/reset-password",
+        tags=["people"],
+        response_model=schemas.TemporaryPassword,
+    )
     def reset_password(conn: Conn, admin: Admin, user_id: int) -> dict:
         """Give a person a new temporary password and sign them out everywhere (admins only)."""
         target = store.get_user(conn, user_id)
@@ -515,6 +596,7 @@ def build_api(
         if store.get_user(conn, user_id) is None:
             raise HTTPException(404, "That person doesn't exist.")
         store.remove_person(conn, admin, user_id)
+        changed("people", "tasks")
         return Response(status_code=204)
 
     return api

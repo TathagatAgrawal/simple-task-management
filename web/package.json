@@ -1,0 +1,27 @@
+{
+  "name": "simple-task-management-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "description": "The task board's web client (Preact + TypeScript). Built output is committed to ../src/simple_task_management/static/dist.",
+  "scripts": {
+    "types": "uv run python scripts/export_openapi.py > openapi.json && openapi-typescript openapi.json -o src/api/schema.d.ts && rm openapi.json",
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.11.4",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "jsdom": "^31.0.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

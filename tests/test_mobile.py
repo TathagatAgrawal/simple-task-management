@@ -50,36 +50,16 @@ def test_page_has_the_home_screen_tags(asha):
     assert "viewport-fit=cover" in html
 
 
-def test_signed_in_page_has_tabs_and_a_me_view(asha):
-    """Phones get a tab bar and a Me tab holding what the user menu has on desktop."""
-    html = asha.get("/").text
-    assert 'data-tab="board" data-seg="todo"' in html
-    for tab in ("board", "soon", "me"):
-        assert f"tbSetTab('{tab}')" in html
-    assert 'id="me-view"' in html
-    assert "Change password" in html
+def test_the_built_client_is_shipped_with_the_package():
+    """The committed bundle exists, so the production PC never needs Node."""
+    bundle = STATIC / "dist" / "app.js"
+    assert bundle.is_file() and bundle.stat().st_size > 10_000
+    assert "/api/events" in bundle.read_text()
 
 
-def test_signed_out_page_has_no_tabs(app, users):
-    """The login screen is not a tabbed app."""
+def test_service_worker_is_served_from_the_root(app, users):
+    """The service worker lives at /sw.js so its scope covers the whole site."""
     with TestClient(app) as client:
-        html = client.get("/").text
-    assert "data-tab" not in html
-    assert 'class="tabbar"' not in html
-
-
-def test_board_fragment_has_status_tabs_and_swipeable_cards(asha):
-    """The board offers a status control with counts and wraps each card for swiping."""
-    asha.post("/tasks", data={"title": "File GSTR-3B", "due": "2026-11-20"})
-    html = asha.get("/board", params={"who": "all"}).text
-    for status in ("todo", "doing", "done"):
-        assert f"tbSetSeg('{status}')" in html
-    assert 'class="card-wrap"' in html
-    assert 'class="swipe-hint"' in html
-
-
-def test_summary_fragment_reports_the_overdue_count(asha):
-    """The summary carries the overdue count the Coming up tab badge shows."""
-    asha.post("/tasks", data={"title": "Late filing", "due": "2026-11-01"})
-    html = asha.get("/summary", params={"who": "all"}).text
-    assert 'data-overdue="1"' in html
+        r = client.get("/sw.js")
+    assert r.status_code == 200 and "javascript" in r.headers["content-type"]
+    assert "notificationclick" in r.text

@@ -23,83 +23,77 @@ def test_temp_password_is_readable():
     assert not set(pw) & set("0o1li")
 
 
-def test_signed_out_page_shows_login(app, users):
-    """Without a session the page is the login form."""
+def test_the_page_is_a_shell_for_the_client(app, users):
+    """The page is a small shell that loads the built client, whether or not you're signed in."""
     with TestClient(app) as client:
         page = client.get("/").text
-    assert 'hx-post="/login"' in page
-
-
-def test_wrong_password(app, users):
-    """A bad password returns the error message and no session cookie."""
-    with TestClient(app) as client:
-        r = client.post(
-            "/login", data={"username": "asha", "password": "nope"}, headers={"HX-Request": "true"}
-        )
-    assert "Wrong username or password" in r.text
-    assert auth.COOKIE_NAME not in r.cookies
-
-
-def test_login_requires_htmx_header(app, users):
-    """Plain cross-site form posts to /login are refused."""
-    with TestClient(app) as client:
-        r = client.post("/login", data={"username": "asha", "password": PASSWORD})
-    assert r.status_code == 400
+    assert '<div id="root">' in page
+    assert "/static/dist/app.js" in page
+    assert "htmx" not in page
 
 
 def test_username_is_case_insensitive(app, users):
     """People can type their username with capitals."""
     client = sign_in(app, "ASHA")
-    assert "Asha Iyer" in client.get("/").text
+    assert client.get("/api/me").json()["name"] == "Asha Iyer"
 
 
-def test_fragments_require_session(app, users):
-    """Htmx requests without a session are redirected to the login page."""
+def test_sign_in_must_be_json(app, users):
+    """A plain cross-site form post cannot sign anyone in: the endpoint only accepts JSON."""
     with TestClient(app) as client:
-        r = client.get("/board", headers={"HX-Request": "true"})
-        assert r.status_code == 401 and r.headers["HX-Redirect"] == "/"
-        r = client.get("/board", follow_redirects=False)
-        assert r.status_code == 303
+        r = client.post("/api/session", data={"username": "asha", "password": PASSWORD})
+    assert r.status_code == 422
+
+
+def test_board_requires_a_session(app, users):
+    """Without a session the API answers 401 as JSON, never a redirect."""
+    with TestClient(app) as client:
+        r = client.get("/api/board", follow_redirects=False)
+    assert r.status_code == 401 and r.json() == {"error": "Sign in required."}
 
 
 def test_post_without_csrf_is_rejected(asha):
-    """A POST missing the CSRF header fails even with a valid cookie."""
-    r = asha.post("/tasks", data={"title": "x", "due": "2026-11-20"}, headers={"X-CSRF-Token": ""})
+    """A write missing the CSRF header fails even with a valid cookie."""
+    r = asha.post(
+        "/api/tasks",
+        json={"title": "x", "due": "2026-11-20"},
+        headers={"X-CSRF-Token": ""},
+    )
     assert r.status_code == 403
 
 
 def test_logout(asha):
     """Signing out ends the session."""
-    assert asha.post("/logout").headers["HX-Redirect"] == "/"
-    assert asha.get("/board").status_code == 401
+    assert asha.delete("/api/session").status_code == 204
+    assert asha.get("/api/board").status_code == 401
 
 
 def test_temporary_password_forces_change(app, conn, users):
     """Someone with a temporary password must choose their own before using the app."""
     temp = store.reset_password(conn, users["ravi"])
     client = sign_in(app, "ravi", temp)
-    assert "choose your own password" in client.get("/").text
-    assert client.get("/board").status_code == 401
+    assert client.get("/api/me").json()["must_change_password"] is True
+    assert client.get("/api/board").status_code == 403
 
     r = client.post(
-        "/me/password",
-        data={"new_password": "brand-new-pass", "confirm_password": "brand-new-pass"},
+        "/api/me/password",
+        json={"new_password": "brand-new-pass", "confirm_password": "brand-new-pass"},
     )
-    assert r.headers["HX-Redirect"] == "/"
-    assert client.get("/board").status_code == 200
+    assert r.status_code == 204
+    assert client.get("/api/board").status_code == 200
 
 
 def test_change_password_needs_current(asha):
     """Voluntary password changes check the current password and the confirmation."""
     data = {"new_password": "another-pass", "confirm_password": "another-pass"}
-    r = asha.post("/me/password", data=data | {"current_password": "wrong"})
+    r = asha.post("/api/me/password", json=data | {"current_password": "wrong"})
     assert r.status_code == 400
     r = asha.post(
-        "/me/password", data=data | {"current_password": PASSWORD, "confirm_password": "x"}
+        "/api/me/password", json=data | {"current_password": PASSWORD, "confirm_password": "x"}
     )
-    assert r.status_code == 400 and "match" in r.text
-    r = asha.post("/me/password", data=data | {"current_password": PASSWORD})
-    assert r.status_code == 200 and "Password changed" in r.text
+    assert r.status_code == 400 and "match" in r.json()["error"]
+    r = asha.post("/api/me/password", json=data | {"current_password": PASSWORD})
+    assert r.status_code == 204
 
 
 def test_short_passwords_rejected(conn, users):

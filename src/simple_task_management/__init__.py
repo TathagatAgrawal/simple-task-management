@@ -70,6 +70,7 @@ def cmd_serve(args: argparse.Namespace, settings: Settings) -> None:
         proxy_headers=True,
         forwarded_allow_ips="127.0.0.1",
         log_config=_log_config(settings),
+        timeout_graceful_shutdown=3,  # open event streams would otherwise delay a restart
     )
 
 
