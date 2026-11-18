@@ -54,7 +54,7 @@ An inbox row per person per change they should hear about. `user_id` is the reci
 
 ### `notification_settings`
 
-What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Alert me" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
+What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Pop up and bell" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
 
 ### `sessions`
 

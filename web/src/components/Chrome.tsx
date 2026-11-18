@@ -2,12 +2,12 @@
 import { useEffect, useRef } from "preact/hooks";
 import type { Theme } from "../api/types";
 import {
-  banner, cardActions, chooseTheme, deleteTask, me, modal, moveTask, openTask, people, setTab, setWho,
-  signOut, summary, unread, who,
+  banner, cardActions, chooseTheme, deleteTask, dismissBanner, liveMessage, me, modal, moveTask, openTask,
+  people, search, setSearch, setTab, setWho, signOut, summary, tab, unread, who,
 } from "../state";
 import { Avatar } from "./bits";
 import { Icon } from "./Icon";
-import { AlertsOptin, Bell, NotificationList } from "./Notifications";
+import { AlertsOptin, Bell, CountBadge, NotificationList } from "./Notifications";
 
 const THEMES: Theme[] = ["system", "light", "dark"];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -90,12 +90,23 @@ export function TopBar() {
           ))}
         </optgroup>
       </select>
+      <input
+        id="q"
+        class="search"
+        type="search"
+        placeholder="Search tasks"
+        aria-label="Search tasks by title"
+        aria-keyshortcuts="/"
+        value={search.value}
+        onInput={(e) => setSearch(e.currentTarget.value)}
+        onKeyDown={(e) => e.key === "Escape" && search.value && (e.preventDefault(), setSearch(""))}
+      />
       <span class="spacer" />
       <a class="help-link" href="/help" target="_blank" rel="noopener">
         <Icon name="help" size={16} /> Help
       </a>
       <Bell />
-      <button class="btn primary new-btn" type="button" aria-label="New task" onClick={() => (modal.value = "new-task")}>
+      <button class="btn primary new-btn" type="button" aria-label="New task" aria-keyshortcuts="n" onClick={() => (modal.value = "new-task")}>
         +<span class="lbl"> New task</span>
       </button>
       <UserMenu />
@@ -105,28 +116,24 @@ export function TopBar() {
 
 export function TabBar() {
   const overdue = summary.value?.overdue.length ?? 0;
-  const badge = (n: number) => (
-    <span class="badge" hidden={n === 0}>
-      {n}
-    </span>
-  );
+  const current = (name: string) => (tab.value === name ? "page" : undefined);
   return (
     <nav class="tabbar" aria-label="Sections">
-      <button type="button" data-tab="board" onClick={() => setTab("board")}>
+      <button type="button" data-tab="board" aria-current={current("board")} onClick={() => setTab("board")}>
         <Icon name="board" size={22} />
         <span>Board</span>
       </button>
-      <button type="button" data-tab="soon" onClick={() => setTab("soon")}>
+      <button type="button" data-tab="soon" aria-current={current("soon")} onClick={() => setTab("soon")}>
         <Icon name="calendar" size={22} />
         <span>Coming up</span>
-        {badge(overdue)}
+        <CountBadge count={overdue} class="badge" />
       </button>
-      <button type="button" data-tab="alerts" onClick={() => setTab("alerts")}>
+      <button type="button" data-tab="alerts" aria-current={current("alerts")} onClick={() => setTab("alerts")}>
         <Icon name="bell" size={22} />
         <span>Alerts</span>
-        {badge(unread.value)}
+        <CountBadge count={unread.value} class="badge" />
       </button>
-      <button type="button" data-tab="me" onClick={() => setTab("me")}>
+      <button type="button" data-tab="me" aria-current={current("me")} onClick={() => setTab("me")}>
         <Icon name="user" size={22} />
         <span>Me</span>
       </button>
@@ -157,9 +164,9 @@ export function MeView() {
           <strong>{user.name}</strong> {user.is_admin && <span class="chip">admin</span>}
         </div>
       </div>
-      <h3 class="me-label">Appearance</h3>
+      <h2 class="me-label">Appearance</h2>
       <ThemeChoice class="me-theme" />
-      <h3 class="me-label">Account</h3>
+      <h2 class="me-label">Account</h2>
       <div class="me-list">
         <button type="button" onClick={() => (modal.value = "notif-settings")}>
           Notification settings <Icon name="chevron-right" size={16} />
@@ -241,7 +248,7 @@ export function CardActions() {
   );
 }
 
-/** The red error message at the top of the page (a popover, so it shows above open dialogs). */
+/** The red error message at the top of the page (a popover, so it shows above open dialogs). It stays until dismissed. */
 export function Banner() {
   const ref = useRef<HTMLDivElement>(null);
   const message = banner.value;
@@ -254,8 +261,16 @@ export function Banner() {
     } else if (el.matches(":popover-open")) el.hidePopover();
   }, [message]);
   return (
-    <div id="banner" role="alert" ref={ref} {...{ popover: "manual" }}>
-      {message}
-    </div>
+    <>
+      <div id="banner" role="alert" ref={ref} {...{ popover: "manual" }}>
+        <span>{message}</span>
+        <button type="button" class="iconbtn" aria-label="Dismiss this message" onClick={dismissBanner}>
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+      <div class="sr-only" role="status" aria-live="polite">
+        {liveMessage.value}
+      </div>
+    </>
   );
 }

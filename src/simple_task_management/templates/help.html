@@ -16,13 +16,13 @@
     .toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
     .toc a:hover { background: var(--surface-2); color: var(--text); }
     .content { max-width: 860px; }
-    .content h1 { font-size: 30px; line-height: 1.2; margin-bottom: 8px; }
+    .content h1 { font-size: 30px; line-height: 1.3; margin-bottom: 8px; }
     .content h2 { font-size: 22px; margin: 56px 0 10px; padding-top: 12px; border-top: 1px solid var(--border); scroll-margin-top: 70px; }
     .content h3 { font-size: 17px; margin: 28px 0 6px; }
     .content p, .content li { max-width: 72ch; }
     .lede { font-size: 17px; color: var(--muted); }
-    kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--surface); }
-    .tip { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    kbd { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--surface); }
+    .tip { border: 1px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 8px; margin: 16px 0; }
     .tip p { margin: 0; }
     .steps { counter-reset: step; list-style: none; padding: 0; display: grid; gap: 10px; }
     .steps > li { counter-increment: step; position: relative; padding-left: 38px; }
@@ -38,13 +38,13 @@
     .shot-frame .arrowhead { fill: #d97706; }
     .pin {
       position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%;
-      background: #d97706; color: #fff; font: 700 13px/26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #b45309; color: #fff; font: 700 13px/26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       text-align: center; box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(0, 0, 0, .35);
     }
     figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
     .legend { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
     .legend li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; }
-    .legend .n { width: 22px; height: 22px; margin-top: 2px; border-radius: 50%; background: #d97706; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; }
+    .legend .n { width: 22px; height: 22px; margin-top: 2px; border-radius: 50%; background: #b45309; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; }
     .figs-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
     @media (max-width: 900px) {
       .help-wrap { grid-template-columns: 1fr; }
@@ -189,7 +189,7 @@
 
     <!-- ================================================================== -->
     <h2 id="task-view">Working on a task</h2>
-    <p>Clicking a card (or a row in “Coming up”) opens the task in a panel over the board. <strong>Every change saves by itself</strong>; there's no Save button.</p>
+    <p>Clicking a card (or a row in “Coming up”) opens the task in a panel over the board. <strong>Every change saves by itself</strong>; there's no Save button. “Saving…” then “Saved ✓” shows at the top of the panel, and if something can't be saved the reason appears right under that field. Setting a due date in the past asks you to confirm first.</p>
     {{ figure("drawer", 1092, 1092, "An open task",
               pins=[(1, 378, 44), (2, 1047, 80), (3, 752, 146), (4, 140, 247), (5, 752, 925), (6, 768, 1049), (7, 1070, 141), (8, 918, 226), (9, 880, 371), (10, 888, 512), (11, 935, 624)],
               boxes=[(20, 268, 740, 290)], width=720) }}
@@ -243,15 +243,17 @@
       <li><strong>A person's name</strong>: just their tasks, e.g. to cover for someone on leave.</li>
     </ul>
     <p>Your choice is remembered on that computer. If your board looks empty, check this first.</p>
+    <p><strong>To find a task by name</strong>, type in the <strong>Search tasks</strong> box at the top (press <kbd>/</kbd> to jump to it, <kbd>Esc</kbd> to clear it). It looks through the tasks in your “Showing” choice, including older finished ones. If you don't see what you expect, try <em>Everyone</em>. The “Coming up” strip says when there is overdue work for other people that “My tasks” is hiding, and one click shows it.</p>
+    <p><strong>Keyboard:</strong> <kbd>n</kbd> starts a new task. Tab to a card and press <kbd>Enter</kbd> to open it, or <kbd>[</kbd> and <kbd>]</kbd> to move it to the previous or next column.</p>
 
     <!-- ================================================================== -->
     <h2 id="notifications">Notifications</h2>
     <p>Whenever someone else changes a task you're on, you get a notification. That covers a new task assigned to you, a change to the title, notes, due date or repeat, a move to another column, a comment, being added or removed, and a deletion. You never get a notification for something you did yourself.</p>
     <ul>
-      <li>A message slides in at the bottom right of the page (at the top on a phone). Click it to open the task, or click × to dismiss it.</li>
-      <li>The <strong>bell</strong> at the top shows how many you haven't read. On a phone it is the <strong>Alerts</strong> tab. Click a notification to open its task. The tick marks it read (or unread again), and × removes it. <em>Mark all read</em> and <em>Clear read</em> work on the whole list. Notifications you've read are cleared automatically after a month.</li>
-      <li><strong>Choose what you hear about.</strong> Open <em>Notification settings</em> from your menu (on a phone, from the Me tab), or press <em>Settings</em> in the bell's panel. For each kind of change (assigned to you, a task edited, moved, commented on, you're removed, deleted) pick <em>Alert me</em> (the bell, a message on the page and a desktop alert), <em>Inbox only</em> (the bell, quietly) or <em>Off</em>. Your choices save as you click, and only affect you. Everything starts on <em>Alert me</em>.</li>
-      <li>To also get an alert from your computer when the board isn't in front of you, press <strong>Turn on desktop alerts</strong> at the top of the bell's list. Your browser asks once; choose <em>Allow</em>. This works while the board is open in a browser tab or window, even behind other windows. If the browser is closed you'll see the notifications next time you open the board.</li>
+      <li><strong>A message appears at the top right of the page</strong>, under the bell (at the top on a phone), while the board is open. Messages about a new task for you, a changed due date, being taken off a task, or a deleted task <strong>stay until you dismiss them</strong>; others (a comment, a move, an edit) fade after 15 seconds. Press <em>View</em> to open the task. If several arrive at once you get one message that opens the list. While the bell's list is open you won't get messages, because the changes appear in the list itself.</li>
+      <li>The <strong>bell</strong> at the top shows how many you haven't read. On a phone it is the <strong>Alerts</strong> tab. Several changes to one task are grouped into one row. Click it to open the task (everything in the row is marked read). The tick marks it read or unread again, and × removes it. <em>Mark all read</em> works on the whole list, and <em>Clear read</em> asks before it deletes. Notifications you've read are cleared automatically after a month.</li>
+      <li><strong>Choose what you hear about.</strong> Open <em>Notification settings</em> from your menu (on a phone, from the Me tab), or press <em>Settings</em> at the top of the bell's list. For each kind of change (assigned to you, a task edited, moved, commented on, you're removed, deleted) pick <em>Pop up and bell</em> (the bell, a message on the page, and a desktop alert if you've turned those on), <em>Bell only</em> (the bell, quietly) or <em>Nothing</em>. A "Saved ✓" appears beside the row you changed. Your choices only affect you, and everything starts on <em>Pop up and bell</em>.</li>
+      <li>To also get an alert from your computer when the board isn't in front of you, press <strong>Turn on desktop alerts</strong> (in the bell's list, or under <em>Desktop alerts</em> in the settings). Your browser asks once; choose <em>Allow</em>. This works while the board is open in a browser tab or window, even behind other windows. If the browser is closed you'll see the notifications next time you open the board.</li>
     </ul>
 
     <!-- ================================================================== -->

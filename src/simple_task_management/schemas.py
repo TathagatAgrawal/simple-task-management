@@ -123,6 +123,7 @@ class Summary(BaseModel):
     overdue: list[SummaryItem]
     today: list[SummaryItem]
     soon: list[SummaryItem]
+    firm_overdue: int
 
 
 class Update(BaseModel):
@@ -184,6 +185,7 @@ class Notification(BaseModel):
     detail: str
     read: bool
     announce: bool
+    sticky: bool
     created_at: str
     when: str
     due_label: str | None

@@ -28,20 +28,20 @@ export function App() {
         <TabBar />
         <CardActions />
         <TaskDrawer />
-        <Modal name="new-task">
+        <Modal name="new-task" labelledBy="new-task-title">
           <NewTaskForm />
         </Modal>
-        <Modal name="password">
+        <Modal name="password" labelledBy="password-title">
           <PasswordForm />
         </Modal>
-        <Modal name="notif-settings">
+        <Modal name="notif-settings" labelledBy="notif-settings-title">
           <NotificationSettings />
           <div class="row end">
             <CloseDone />
           </div>
         </Modal>
         {user.is_admin && (
-          <Modal name="people" wide>
+          <Modal name="people" wide labelledBy="people-title">
             <PeopleDialog />
           </Modal>
         )}

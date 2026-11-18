@@ -20,6 +20,7 @@ Three people share a board of tasks. Each task has a title, notes, one or more a
 | 4 | [development.md](development.md) | Setup, commands, code conventions, step-by-step recipes for common changes, testing, and known gotchas |
 | 5 | [operations.md](operations.md) | How it's deployed and run on Windows, the security model, backups and recovery |
 | – | [design/plan.html](design/plan.html) | The original design plan with diagrams and UI mockups. It's the historical record of *why*; where it differs from the code, the code and these docs win. |
+| – | [design/ux-critique-2026-11-18.md](design/ux-critique-2026-11-18.md) | A UX critique of the board (score, findings, persona red flags) and the decisions on what to fix. Not implemented yet; it's the brief for that pass. |
 | – | [design/notifications.html](design/notifications.html) | The notifications design. Phases 1 and 2 (inbox and desktop alerts) are built; Phase 3 (Web Push) is not. Where it differs from the code, the code wins: it notifies on every change, not only assignment. |
 
 The root [README.md](../README.md) is the user-facing guide: how to try the app on a Mac, deploy it on Windows, and what staff need to do.

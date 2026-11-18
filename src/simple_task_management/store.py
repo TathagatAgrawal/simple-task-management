@@ -25,20 +25,23 @@ NOTIFICATION_KINDS = {
     "assigned": ("I'm assigned to a task", "A new task is given to me, or I'm added to one."),
     "changed": (
         "A task I'm on is edited",
-        "The title, notes, due date or repeat changes, or someone joins or leaves it.",
+        "The title, notes, due date or repeat changes, or someone else is added to it or taken off.",
     ),
     "moved": ("A task I'm on moves", "It goes to another column or is marked Done."),
     "comment": ("Someone comments", "A new comment on a task I'm on."),
     "removed": ("I'm removed from a task", "Someone takes me off a task."),
     "deleted": ("A task I'm on is deleted", "A task I was on is removed."),
 }
-# How a kind reaches a person: "alert" = in the bell, a message on the page and a desktop alert;
-# "inbox" = in the bell only; "off" = not at all. "alert" is the default for everything.
+# How a kind reaches a person, named for what happens: "alert" = in the bell, a message on the page
+# and a desktop alert; "inbox" = in the bell only; "off" = not at all. "alert" is the default.
 NOTIFICATION_MODES = {
-    "alert": "Alert me",
-    "inbox": "Inbox only",
-    "off": "Off",
+    "alert": "Pop up and bell",
+    "inbox": "Bell only",
+    "off": "Nothing",
 }
+# Notifications that change a deadline or a person's work: the page keeps their message on screen
+# until it is dismissed, instead of letting it fade.
+STICKY_KINDS = ("assigned", "removed", "deleted")
 USERNAME_RE = re.compile(r"^[a-z0-9._-]{2,32}$")
 
 

@@ -32,7 +32,7 @@ export function NewTaskForm() {
         }
       }}
     >
-      <h2>New task</h2>
+      <h2 id="new-task-title">New task</h2>
       <label>
         Title <input name="title" maxLength={200} required placeholder="e.g. GSTR-3B – Patel Traders" />
       </label>
@@ -100,7 +100,7 @@ export function PasswordForm() {
         }
       }}
     >
-      <h2>Change password</h2>
+      <h2 id="password-title">Change password</h2>
       <label>
         Current password <input name="current_password" type="password" autocomplete="current-password" required />
       </label>
@@ -143,7 +143,7 @@ export function PeopleDialog() {
 
   return (
     <div id="people">
-      <h2>People</h2>
+      <h2 id="people-title">People</h2>
       {flash.value && <p class="flash">{flash.value}</p>}
       <ul class="people">
         {people.value.map((p) => (

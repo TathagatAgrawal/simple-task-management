@@ -8,19 +8,26 @@ import { type ModalName, modal } from "../state";
 export function Modal({
   name,
   wide,
+  labelledBy,
   children,
 }: {
   name: ModalName;
   wide?: boolean;
+  /** The id of the heading that names this dialog for screen readers. */
+  labelledBy?: string;
   children: ComponentChildren;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const opener = useRef<Element | null>(null);
   const open = modal.value === name;
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      opener.current = document.activeElement;
+      dialog.showModal();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
@@ -45,8 +52,19 @@ export function Modal({
     <dialog
       ref={ref}
       class={`modal${wide ? " wide" : ""}`}
+      aria-labelledby={labelledBy}
       onClose={() => {
         if (modal.value === name) modal.value = null;
+        // Give focus back to whatever opened the dialog. When that control has since closed (a
+        // menu item), fall back to the user menu, or the bell, so keyboard users aren't dropped.
+        const from = opener.current as HTMLElement | null;
+        const target =
+          from && from !== document.body && from.isConnected && from.getClientRects().length
+            ? from
+            : [".usermenu summary", ".tabbar [data-tab='me']", "#bell-btn"]
+                .map((selector) => document.querySelector<HTMLElement>(selector))
+                .find((el) => el && el.getClientRects().length);
+        target?.focus();
       }}
     >
       <div class="sheet-grab" aria-hidden="true" />

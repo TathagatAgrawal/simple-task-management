@@ -55,3 +55,48 @@ export function remember(key: string, value: string): void {
     /* ignore */
   }
 }
+
+export type NotificationLike = {
+  id: number;
+  task_id: number | null;
+  title: string;
+  read: boolean;
+  due_label: string | null;
+  due_tone: string;
+};
+
+export type NotificationGroup<T extends NotificationLike> = {
+  key: string;
+  taskId: number | null;
+  title: string;
+  read: boolean;
+  items: T[]; // newest first
+};
+
+/**
+ * Fold consecutive notifications about the same task (with the same read state) into one row, so
+ * five changes to one filing read as one entry instead of five. Notifications about a deleted task
+ * stay on their own. The list is newest first and keeps that order.
+ */
+export function groupNotifications<T extends NotificationLike>(items: T[]): NotificationGroup<T>[] {
+  const groups: NotificationGroup<T>[] = [];
+  for (const n of items) {
+    const last = groups[groups.length - 1];
+    if (last && n.task_id !== null && last.taskId === n.task_id && last.read === n.read) {
+      last.items.push(n);
+    } else {
+      groups.push({ key: String(n.id), taskId: n.task_id, title: n.title, read: n.read, items: [n] });
+    }
+  }
+  return groups;
+}
+
+/** The unread count as it should be written on a badge, never wider than three characters. */
+export function badgeText(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+/** True when an ISO date (YYYY-MM-DD) is before today's ISO date. */
+export function isBefore(date: string, today: string): boolean {
+  return date < today;
+}

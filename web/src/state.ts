@@ -2,8 +2,8 @@
 // saving changes back. Components read the signals and call these functions; only this file and
 // ``api/client.ts`` know how the server is reached.
 import { effect, signal } from "@preact/signals";
-import { announce } from "./alerts";
-import { api, ApiError, setCsrf } from "./api/client";
+import { alertState, showOsAlerts, showToasts } from "./alerts";
+import { api, ApiError, setCsrf, setSuccessHandler } from "./api/client";
 import type {
   Board, Card, Me, Meta, Mode, Notification, Person, Settings, Status, Summary, Task, TaskIn,
   TaskPatch, Theme,
@@ -43,6 +43,16 @@ export const newest = signal(0);
 export const settings = signal<Settings | null>(null);
 
 export const banner = signal("");
+export const search = signal("");
+/** What a screen reader should hear after something happens that has no visible message. */
+export const liveMessage = signal("");
+/** A card that should take keyboard focus once it has been re-rendered in its new column. */
+export const focusCardId = signal<number | null>(null);
+/** Where the last save of a task field stands, and the problem (if any) next to the field. */
+export const saveStatus = signal<"idle" | "saving" | "saved" | "error">("idle");
+export const fieldErrors = signal<Record<string, string>>({});
+/** Whether the bell's panel is open (the bell reports it to assistive technology). */
+export const panelOpen = signal(false);
 export const modal = signal<ModalName | null>(null);
 export const cardActions = signal<{ id: number; title: string; status: Status } | null>(null);
 export const tab = signal<Tab>(remembered("tb-tab", TABS, "board"));
@@ -52,14 +62,17 @@ export const seg = signal<Seg>(remembered("tb-seg", SEGS, "todo"));
 const drag = { active: false, dirty: false };
 
 // ---- small helpers ---------------------------------------------------------------------
-let bannerTimer: ReturnType<typeof setTimeout> | undefined;
-
-/** Show a message in the error banner at the top of the page for a few seconds. */
+/** Show a message in the error banner. It stays until dismissed or the next change succeeds. */
 export function showBanner(message: string): void {
   banner.value = message;
-  clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => (banner.value = ""), 6000);
 }
+
+export function dismissBanner(): void {
+  banner.value = "";
+}
+
+// Once something saves successfully again, an old error message is out of date.
+setSuccessHandler(dismissBanner);
 
 /** Show an error from the API in the banner. */
 export function fail(error: unknown): void {
@@ -107,7 +120,24 @@ export function setWho(value: string): void {
   void refreshBoard();
 }
 
+let searchLoadedOlder = false;
+
+/** Filter the board and the strip by title. Searching also loads older Done tasks, so they can be found. */
+export function setSearch(query: string): void {
+  search.value = query;
+  if (query.trim() && doneDays.value < 1000) {
+    doneDays.value = 3650;
+    searchLoadedOlder = true;
+    void refreshBoard();
+  } else if (!query.trim() && searchLoadedOlder) {
+    doneDays.value = 14;
+    searchLoadedOlder = false;
+    void refreshBoard();
+  }
+}
+
 export function showOlder(): void {
+  searchLoadedOlder = false;
   doneDays.value = 3650;
   void refreshBoard();
 }
@@ -180,7 +210,13 @@ export const refreshMeta = coalesced(async () => {
   meta.value = await api.meta();
 });
 
-let announcedKey = "";
+// Announcements. A page remembers, in memory, the newest notification it has shown as a message,
+// so each open tab announces on its own: two tabs never take each other's messages. A hidden tab
+// announces nothing and waits, so what arrived meanwhile appears when the person comes back.
+// Desktop alerts use a marker shared between tabs (so they fire once), and only move it when an
+// alert was actually sent or the person was looking at the page.
+let toastSeen: number | null = null;
+
 export const refreshNotifications = coalesced(async () => {
   const user = me.value;
   if (!user) return;
@@ -188,14 +224,32 @@ export const refreshNotifications = coalesced(async () => {
   unread.value = counts.unread;
   newest.value = counts.newest;
   notifications.value = list;
-  // Each browser remembers the newest notification it has announced. A first visit announces
-  // nothing old; later ones announce only what arrived since.
-  announcedKey = "tb-alerted-" + user.id;
-  const stored = recall(announcedKey);
-  const seen = stored === null ? counts.newest : Number(stored);
-  remember(announcedKey, String(Math.max(seen, counts.newest)));
-  const fresh = list.filter((n) => n.id > seen && !n.read && n.announce).reverse();
-  if (fresh.length) announce(fresh);
+
+  const announceable = list.filter((n) => !n.read && n.announce);
+  const looking = document.visibilityState === "visible";
+  const focused = looking && document.hasFocus();
+
+  if (toastSeen === null) toastSeen = counts.newest; // a fresh page announces nothing old
+  if (looking) {
+    const fresh = announceable.filter((n) => n.id > (toastSeen ?? 0)).reverse();
+    toastSeen = Math.max(toastSeen, counts.newest);
+    // While the list itself is open the new row appears in it, so a message would only cover its tools.
+    const listOpen = panelOpen.value || (tab.value === "alerts" && window.matchMedia("(max-width: 640px)").matches);
+    if (fresh.length && !listOpen) showToasts(fresh);
+  }
+
+  const osKey = "tb-os-alerted-" + user.id;
+  const stored = recall(osKey);
+  const osSeen = stored === null ? counts.newest : Number(stored);
+  if (alertState.value === "on" && !focused) {
+    const fresh = announceable.filter((n) => n.id > osSeen).reverse();
+    if (fresh.length) {
+      showOsAlerts(fresh);
+      remember(osKey, String(Math.max(osSeen, counts.newest)));
+    }
+  } else if (alertState.value !== "on" || looking) {
+    remember(osKey, String(Math.max(osSeen, counts.newest)));
+  }
 });
 
 export const refreshSettings = coalesced(async () => {
@@ -276,23 +330,57 @@ export function closeTask(): void {
   task.value = null;
 }
 
+let savedTimer: ReturnType<typeof setTimeout> | undefined;
+
+function beginSave(): void {
+  clearTimeout(savedTimer);
+  saveStatus.value = "saving";
+}
+
+function finishSave(fields: string[]): void {
+  const rest = { ...fieldErrors.value };
+  for (const f of fields) delete rest[f];
+  fieldErrors.value = rest;
+  saveStatus.value = "saved";
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => (saveStatus.value = "idle"), 2500);
+}
+
+function failSave(fields: string[], error: unknown): void {
+  const message = error instanceof ApiError ? error.message : "That didn't save. Please try again.";
+  const next = { ...fieldErrors.value };
+  for (const f of fields) next[f] = message;
+  fieldErrors.value = next;
+  saveStatus.value = "error";
+}
+
 /** Move a card to another column: the board updates at once, then the server confirms. */
-export async function moveTask(id: number, status: Status): Promise<void> {
+export async function moveTask(id: number, status: Status, options: { keepFocus?: boolean } = {}): Promise<void> {
   const current = board.value;
+  let title = "";
   if (current) {
     const card = (Object.values(current).flat() as Card[]).find((c) => c.id === id);
     if (card && card.status !== status) {
+      title = card.title;
       const next: Board = { todo: [], doing: [], done: [] };
       for (const key of ["todo", "doing", "done"] as const) {
         next[key] = current[key].filter((c) => c.id !== id);
       }
       next[status] = [{ ...card, status }, ...next[status]];
       board.value = next;
+      if (options.keepFocus) focusCardId.value = id;
     }
   }
+  beginSave();
   try {
     await api.patchTask(id, { status });
+    finishSave(["status"]);
+    if (title) {
+      const label = meta.value?.statuses.find((s) => s.value === status)?.label ?? status;
+      liveMessage.value = `Moved “${title}” to ${label}`;
+    }
   } catch (error) {
+    failSave(["status"], error);
     fail(error);
   }
   void refreshBoard();
@@ -300,27 +388,42 @@ export async function moveTask(id: number, status: Status): Promise<void> {
   void refreshNotifications();
 }
 
-/** Save changes to a task; the drawer shows the server's version afterwards. */
+const FIELD_OF: Record<string, string> = {
+  title: "title",
+  notes: "notes",
+  due: "due",
+  repeat: "repeat",
+  assignee_ids: "assignees",
+  status: "status",
+};
+
+/** Save changes to a task; the drawer shows the server's version, and any problem beside the field. */
 export async function saveTask(id: number, patch: TaskPatch): Promise<void> {
+  const fields = Object.keys(patch).map((k) => FIELD_OF[k] ?? k);
+  beginSave();
   try {
     const updated = await api.patchTask(id, patch);
     if (openTaskId.value === id) task.value = updated;
+    finishSave(fields);
   } catch (error) {
-    fail(error);
+    failSave(fields, error);
     void refreshTask(); // put the fields back to what the server has
   }
   void refreshBoard();
 }
 
-export async function postUpdate(id: number, body: string): Promise<boolean> {
+/** Post a comment. Returns null on success, or the problem written for the person. */
+export async function postUpdate(id: number, body: string): Promise<string | null> {
+  beginSave();
   try {
     const updated = await api.addUpdate(id, body);
     if (openTaskId.value === id) task.value = updated;
     void refreshBoard();
-    return true;
+    finishSave(["comment"]);
+    return null;
   } catch (error) {
-    fail(error);
-    return false;
+    failSave(["comment"], error);
+    return error instanceof ApiError ? error.message : "That didn't post. Please try again.";
   }
 }
 
@@ -352,15 +455,18 @@ async function notificationAction(action: () => Promise<void>): Promise<void> {
   void refreshNotifications();
 }
 
-export const markRead = (id: number) => notificationAction(() => api.markRead(id));
-export const markUnread = (id: number) => notificationAction(() => api.markUnread(id));
-export const dismissNotification = (id: number) => notificationAction(() => api.dismiss(id));
+export const markRead = (ids: number[]) =>
+  notificationAction(async () => void (await Promise.all(ids.map((id) => api.markRead(id)))));
+export const markUnread = (ids: number[]) =>
+  notificationAction(async () => void (await Promise.all(ids.map((id) => api.markUnread(id)))));
+export const dismissNotifications = (ids: number[]) =>
+  notificationAction(async () => void (await Promise.all(ids.map((id) => api.dismiss(id)))));
 export const markAllRead = () => notificationAction(() => api.readAll());
 export const clearReadNotifications = () => notificationAction(() => api.clearRead());
 
 /** Open a notification's task and mark it read. */
 export function openNotification(taskId: number | null, id: number | null): void {
-  if (id !== null) void markRead(id);
+  if (id !== null) void markRead([id]);
   if (taskId !== null) openTask(taskId);
 }
 

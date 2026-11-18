@@ -594,6 +594,8 @@ export interface components {
             kind: string;
             /** Read */
             read: boolean;
+            /** Sticky */
+            sticky: boolean;
             /** Task Id */
             task_id: number | null;
             /** Text */
@@ -715,6 +717,8 @@ export interface components {
          * @description The deadline strip.
          */
         Summary: {
+            /** Firm Overdue */
+            firm_overdue: number;
             /** Overdue */
             overdue: components["schemas"]["SummaryItem"][];
             /** Soon */
