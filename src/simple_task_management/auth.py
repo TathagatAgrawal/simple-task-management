@@ -8,6 +8,8 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta
 
+from fastapi import Request, Response
+
 from .db import now_iso
 
 SESSION_DAYS = 30
@@ -56,6 +58,18 @@ def create_session(conn: sqlite3.Connection, user_id: int) -> str:
             (token, user_id, secrets.token_urlsafe(32), expires),
         )
     return token
+
+
+def set_session_cookie(response: Response, request: Request, token: str) -> None:
+    """Put the session token in an HttpOnly cookie, marked Secure when reached over HTTPS."""
+    response.set_cookie(
+        COOKIE_NAME,
+        token,
+        max_age=SESSION_DAYS * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https" or request.headers.get("X-Forwarded-Proto") == "https",
+    )
 
 
 def session_user(conn: sqlite3.Connection, token: str | None) -> tuple[sqlite3.Row, str] | None:

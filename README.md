@@ -118,6 +118,7 @@ The app includes an illustrated manual with annotated screenshots of every scree
 
 1. Make sure Tailscale is running on your computer.
 2. Open **https://tasks.\<your-tailnet\>.ts.net** and bookmark it. In Chrome or Edge you can also use ⋮ → Cast, save and share → **Install page as app** to give it its own window.
+   **On a phone**, install it so it opens full-screen with its own icon: on iPhone, open it in Safari, tap Share → **Add to Home Screen**; on Android, open it in Chrome and choose ⋮ → **Install app**. Tailscale must be connected on the phone too. On iPhone, sign in once more inside the installed app.
 3. Sign in with the username and temporary password the admin gives you, then choose your own password.
 
 ## Configuration

@@ -33,6 +33,7 @@ CI (`.github/workflows/ci.yml`) runs lint and format on Ubuntu, the tests on Ubu
 - **Layering:** routes in `app.py` call `store.*`. SQL lives only in `store.py` (plus the sessions queries in `auth.py`). Pure date logic lives in `dates.py` and `recurrence.py`. See [architecture.md](architecture.md).
 - **User-facing errors:** raise `store.UserError("Plain-English sentence.")`. It becomes a `400` and shows in the banner. Don't leak exception text to users.
 - **FastAPI parameters:** use `Annotated[..., Form()]` and the `Conn`, `User` and `Admin` aliases inside `create_app`. Don't use default-argument `Depends()`.
+- **Two front doors, one store:** the HTML routes in `app.py` and the JSON routes in `api.py` both call `store.*`. A new business rule goes in `store.py`; add the JSON endpoint (and test) next to the HTML one when the feature should be reachable from both. See [architecture.md](architecture.md#the-json-api).
 - **Mutating endpoints** return `Response(status_code=204, headers=TASKS_CHANGED)` (see the contract in [architecture.md](architecture.md#the-tasks-changed-contract)).
 - **Transactions:** wrap each write in `with conn:`. Business-rule checks that read data go before it; writes and their events go inside it.
 - **Time:** never call `date.today()` or `datetime.now()` in app logic. Take `today` as a parameter (store/dates) or use the `today()` closure (app). Tests use a fixed clock.
@@ -98,6 +99,7 @@ Edit `dates.bucket` and `SOON_DAYS`, plus the SQL horizon in `store.summary`, th
 - `new_task(client, **fields)` creates a task through HTTP and asserts `204`.
 - Prefer HTTP-level tests (they cover routing, auth, CSRF and the store together). Use direct `store.*` calls for setup or for logic that's awkward over HTTP.
 - Date logic uses parametrised tables with explicit dates: month-ends, leap years, year boundaries.
+- `tests/test_api.py` has `api_client(app, username)`, which signs in through `POST /api/session` and sends the bearer token. `tests/test_mobile.py` checks the phone markup and the manifest and icons.
 - The JS isn't unit-tested. After changing `board.js` or templates, click through the checklist in the root README ("A pre-shipping checklist") in a real browser.
 
 ## Gotchas

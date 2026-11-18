@@ -2,6 +2,11 @@
 {% if total == 0 and who == "me" %}
 <p class="board-hint">Nothing is assigned to you yet. Choose <strong>Everyone</strong> under “Showing” to see all the firm's tasks, or click <strong>+ New task</strong>.</p>
 {% endif %}
+<div class="col-tabs" role="tablist" aria-label="Status">
+  {% for status, label in status_labels.items() %}
+  <button type="button" role="tab" data-seg="{{ status }}" onclick="tbSetSeg('{{ status }}')">{{ label }} <span class="n">{{ columns[status] | length }}</span></button>
+  {% endfor %}
+</div>
 <div class="board">
   {% for status, label in status_labels.items() %}
   <section class="col" data-status="{{ status }}" aria-label="{{ label }}">

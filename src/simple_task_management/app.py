@@ -18,13 +18,20 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import auth, backup, dates, db, store
+from .api import build_api
 from .config import Settings, load_settings
 from .recurrence import REPEAT_LABELS
 
@@ -137,6 +144,11 @@ def create_app(
 
     Conn = Annotated[sqlite3.Connection, Depends(get_conn)]
 
+    app.mount(
+        "/api",
+        build_api(settings=settings, today=today, get_conn=get_conn, throttle=throttle),
+    )
+
     def require_user(request: Request, conn: Conn) -> sqlite3.Row:
         """The signed-in user; checks the CSRF header on every POST."""
         found = auth.session_user(conn, request.cookies.get(auth.COOKIE_NAME))
@@ -214,15 +226,7 @@ def create_app(
             return HTMLResponse("Wrong username or password.")
         throttle.succeeded(username)
         response = Response(headers={"HX-Redirect": "/"})
-        response.set_cookie(
-            auth.COOKIE_NAME,
-            auth.create_session(conn, user["id"]),
-            max_age=auth.SESSION_DAYS * 86400,
-            httponly=True,
-            samesite="lax",
-            secure=request.url.scheme == "https"
-            or request.headers.get("X-Forwarded-Proto") == "https",
-        )
+        auth.set_session_cookie(response, request, auth.create_session(conn, user["id"]))
         return response
 
     @app.post("/logout")
@@ -448,6 +452,13 @@ def create_app(
         """The user manual. Open to everyone, so it can be read before signing in."""
         found = auth.session_user(conn, request.cookies.get(auth.COOKIE_NAME))
         return render(request, "help.html", user=found[0] if found else None)
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    def manifest() -> FileResponse:
+        """The web app manifest that lets phones install the app to the home screen."""
+        return FileResponse(
+            HERE / "static" / "manifest.webmanifest", media_type="application/manifest+json"
+        )
 
     @app.get("/healthz", response_class=PlainTextResponse)
     def healthz(conn: Conn) -> str:

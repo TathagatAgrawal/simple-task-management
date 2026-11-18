@@ -2,7 +2,7 @@
 {# The "coming up" strip. Each group shows its first few tasks; the rest sit behind "Show N more". #}
 {% set groups = [("overdue", "Overdue"), ("today", "Due today"), ("soon", "Next 3 days")] %}
 {% set limit = 3 %}
-<div class="summary">
+<div class="summary" data-overdue="{{ buckets.overdue | length }}">
   {% for key, label in groups %}
   {% set items = buckets[key] %}
   <div class="sumcard {{ key }}" data-group="{{ key }}">

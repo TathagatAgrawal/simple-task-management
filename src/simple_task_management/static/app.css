@@ -266,3 +266,177 @@ dialog h2 { font-size: 16px; margin-bottom: 4px; }
 .flash { background: var(--accent-soft); color: var(--text); border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; }
 .flash code { font-size: 14px; font-weight: 700; }
 #people form.row input { flex: 1; min-width: 140px; }
+
+/* ---- phone layout (≤ 640px) -------------------------------------------------------------
+   The same page, restyled: tabs at the bottom (Board / Coming up / Me), one column at a time
+   on the board, the task drawer as a full-screen page, dialogs as bottom sheets. The mobile-only
+   pieces are hidden on larger screens. */
+.tabbar, .me-view, .col-tabs, .swipe-hint, .back-btn, .sheet-grab { display: none; }
+.avatar.lg { width: 56px; height: 56px; font-size: 18px; border-width: 0; }
+dialog.actions { display: none; }
+
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px; } /* 16px stops iOS zooming in on focus */
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); -webkit-text-size-adjust: 100%; }
+  .btn { min-height: 40px; }
+
+  /* top bar: title, filter pill and a round + button; Help and the user menu live in Me */
+  .topbar { padding: 8px 14px; padding-top: calc(8px + env(safe-area-inset-top)); gap: 8px; }
+  .topbar .brand { font-size: 22px; letter-spacing: -.01em; margin-right: 0; }
+  .who-label, .help-link, .usermenu { display: none; }
+  #who { height: 40px; border-radius: 20px; padding: 0 30px 0 14px; max-width: 42vw; font-weight: 500; text-overflow: ellipsis; }
+  .new-btn { border-radius: 20px; padding: 0 16px; height: 40px; }
+
+  /* tabs */
+  .tabbar {
+    display: flex; position: fixed; inset: auto 0 0 0; z-index: 20; background: var(--surface);
+    border-top: 1px solid var(--border); padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabbar button {
+    flex: 1; position: relative; display: grid; justify-items: center; gap: 2px; padding: 4px 0; min-height: 46px;
+    border: 0; background: none; color: var(--muted); font-size: 11px; font-weight: 500;
+  }
+  .tabbar .badge {
+    position: absolute; top: 0; left: calc(50% + 6px); background: var(--red); color: #fff; font-size: 11px;
+    font-weight: 600; min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px; padding: 0 5px; text-align: center;
+  }
+  body[data-tab="board"] .tabbar [data-tab="board"], body[data-tab="soon"] .tabbar [data-tab="soon"],
+  body[data-tab="me"] .tabbar [data-tab="me"] { color: var(--accent); font-weight: 600; }
+  #summary, #board, .me-view { display: none; }
+  body[data-tab="soon"] #summary, body[data-tab="board"] #board, body[data-tab="me"] .me-view { display: block; }
+
+  /* Coming up */
+  .summary { grid-template-columns: 1fr; padding: 12px 14px 4px; }
+  .sum-item { padding: 11px 6px; }
+  .sum-go { opacity: 1; }
+
+  /* board: one status at a time, chosen with the segmented control */
+  .col-tabs { display: flex; background: var(--surface-2); border-radius: 10px; padding: 2px; margin: 12px 14px 4px; }
+  .col-tabs button {
+    flex: 1; border: 0; background: none; border-radius: 8px; padding: 7px 4px; color: var(--text); font-weight: 500;
+    transition: background .15s;
+  }
+  .col-tabs .n { color: var(--muted); font-size: 12px; font-weight: 500; }
+  body[data-seg="todo"] .col-tabs [data-seg="todo"], body[data-seg="doing"] .col-tabs [data-seg="doing"],
+  body[data-seg="done"] .col-tabs [data-seg="done"] { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+  .board { display: block; padding: 8px 14px 20px; }
+  .col { display: none; background: none; padding: 0; min-height: 0; }
+  body[data-seg="todo"] .col[data-status="todo"], body[data-seg="doing"] .col[data-status="doing"],
+  body[data-seg="done"] .col[data-status="done"] { display: flex; }
+  .col h3 { display: none; }
+  .col[data-status="done"] h3 { display: block; margin: 0 2px 8px; }
+  .col[data-status="done"] h3 span:last-child { display: none; }
+  .col .btn.link { padding: 12px 0; }
+  .board-hint { margin: 10px 14px 0; }
+  .cards { gap: 10px; }
+  .card-wrap { position: relative; border-radius: 12px; overflow: hidden; }
+  .swipe-hint {
+    pointer-events: none; display: flex; position: absolute; inset: 0; align-items: center; padding: 0 20px; color: #fff;
+    font-weight: 600; opacity: 0; background: var(--accent);
+  }
+  .swipe-hint.right { justify-content: flex-start; }
+  .swipe-hint.left { justify-content: flex-end; background: #7b7a74; }
+  .card { position: relative; z-index: 1; padding: 12px 14px; border-radius: 12px; touch-action: pan-y; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+  .card.selected { outline-offset: -2px; }
+  .card.swiping { transition: none; }
+  .card.snapback { transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+  .card-title { font-size: 16px; }
+  .empty { padding: 28px 8px; font-size: 14px; }
+
+  /* Me tab */
+  .me-view { padding: 4px 14px 24px; }
+  .me-title { font-size: 30px; letter-spacing: -.02em; padding: 6px 4px 12px; }
+  .me-card { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 17px; }
+  .me-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 22px 6px 6px; font-weight: 500; }
+  .me-theme { display: flex; margin: 0; }
+  .me-theme button { flex: 1; padding: 9px 4px; }
+  .me-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+  .me-list > button, .me-list > a {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 13px 14px; min-height: 48px;
+    border: 0; border-top: 1px solid var(--border); background: none; color: var(--text); text-decoration: none; font-size: 16px; text-align: left;
+  }
+  .me-list > :first-child { border-top: 0; }
+  .me-list .icon { color: var(--muted); }
+  .me-list .danger { color: var(--red); justify-content: center; }
+  .me-foot { text-align: center; }
+  .me-list + .me-label { margin-top: 6px; }
+
+  /* the task drawer becomes a full-screen page that slides in from the right */
+  dialog.drawer {
+    width: 100vw; height: calc(100dvh - var(--kb, 0px)); border-left: 0; touch-action: pan-y;
+  }
+  dialog.drawer[open] { animation: page-in .3s cubic-bezier(.2, .8, .2, 1); }
+  dialog.drawer::backdrop { background: transparent; }
+  @keyframes page-in { from { transform: translateX(100%); } }
+  .panel-head { padding: 8px 12px 8px 4px; padding-top: calc(8px + env(safe-area-inset-top)); gap: 2px; align-items: center; }
+  .back-btn { display: inline-flex; color: var(--accent); padding: 6px 8px; }
+  .back-btn:focus, dialog.actions button:focus { outline: none; }
+  .panel-head .icon-btn, .panel-head > .btn.icon[aria-label="Close"] { display: none; }
+  .title-input { font-size: 19px; margin-left: 0; }
+  .task-number { font-size: 14px; padding-top: 0; }
+  /* one scrolling page: details first, then notes and updates, with the composer pinned at the bottom */
+  .panel-body { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .panel-main, .panel-side { display: contents; }
+  .side-section { order: -1; margin: 0 16px; }
+  .side-section:last-child { order: 1; }
+  .side-section .btn.danger { min-height: 44px; }
+  .section-title { margin: 16px 16px 4px; }
+  .notes-input { margin: 0 16px; width: calc(100% - 32px); max-height: none; }
+  .thread-scroll { flex: none; overflow: visible; margin: 0; padding: 4px 16px 16px; }
+  .composer {
+    order: 2; position: sticky; bottom: 0; margin: 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    gap: 6px; grid-template-columns: 1fr auto; align-items: end;
+  }
+  .composer textarea { min-height: 44px; field-sizing: content; max-height: 30vh; resize: none; }
+  .composer .row { margin: 0; }
+  .chip-toggle { padding: 7px 14px; }
+  .panel-side select, .panel-side input[type=date] { min-height: 40px; }
+
+  /* dialogs become bottom sheets */
+  dialog.modal, dialog.modal.wide {
+    margin: auto 0 var(--kb, 0px); width: 100%; max-width: none; max-height: calc(100dvh - var(--kb, 0px) - 24px); overflow-y: auto;
+    border-width: 1px 0 0; border-radius: 16px 16px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+    touch-action: pan-y;
+  }
+  dialog.modal[open] { animation: sheet-in .28s cubic-bezier(.2, .8, .2, 1); }
+  /* the handle and title are the part you drag down to dismiss, so the browser must not scroll from them */
+  .sheet-grab { display: block; position: relative; height: 30px; margin: -8px -16px 0; touch-action: none; }
+  .sheet-grab::after { content: ""; position: absolute; left: 50%; top: 10px; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: var(--border); }
+  dialog.modal h2 { touch-action: none; padding: 2px 0 8px; font-size: 18px; }
+  body:has(dialog[open]) { overflow: hidden; }
+
+  /* roomier forms and clear pressed states */
+  dialog.modal .stack-form { gap: 14px; }
+  dialog.modal input, dialog.modal select, dialog.modal textarea { min-height: 44px; border-radius: 10px; padding: 10px 12px; }
+  dialog.modal textarea { min-height: 96px; }
+  dialog.modal .row > label { flex: 1 1 140px; min-width: 0; }
+  dialog.modal input[type=date] { width: 100%; }
+  dialog.modal .row.end { gap: 10px; flex-wrap: nowrap; }
+  dialog.modal .row.end .btn { flex: 1; min-height: 46px; font-size: 16px; }
+  dialog.modal .chip-toggle { padding: 9px 16px; }
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, summary, label, select, .card { touch-action: manipulation; }
+  .card { touch-action: pan-y; }
+  .card:active { background: var(--surface-2); }
+  .tabbar button:active, .sum-item:active, .me-list > :active, dialog.actions button:active, .col-tabs button:active { background: var(--surface-2); }
+  .btn:active { background: var(--surface-2); }
+  .btn.primary:active { filter: brightness(.9); background: var(--accent); }
+  @keyframes sheet-in { from { transform: translateY(100%); } }
+  .people li { gap: 6px; }
+
+  /* the quick-actions sheet that swipe-left or press-and-hold opens on a card */
+  dialog.actions[open] {
+    display: grid; gap: 8px; margin: auto 8px calc(8px + env(safe-area-inset-bottom)); width: calc(100% - 16px); max-width: none;
+    padding: 0; border: 0; background: transparent; animation: sheet-in .26s cubic-bezier(.2, .8, .2, 1);
+  }
+  dialog.actions .box { background: var(--surface); border-radius: 14px; overflow: hidden; }
+  dialog.actions .msg { text-align: center; color: var(--muted); font-size: 13px; padding: 12px 16px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+  dialog.actions button { display: block; width: 100%; padding: 15px; border: 0; background: none; color: var(--accent); font-size: 18px; text-align: center; }
+  dialog.actions .box button + button { border-top: 1px solid var(--border); }
+  dialog.actions button.danger { color: var(--red); }
+  dialog.actions .cancel { background: var(--surface); border-radius: 14px; font-weight: 600; }
+  #banner { top: calc(10px + env(safe-area-inset-top)); width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog[open], .card.snapback { animation: none !important; transition: none !important; }
+}

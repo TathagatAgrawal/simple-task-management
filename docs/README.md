@@ -28,6 +28,7 @@ The root [README.md](../README.md) is the user-facing guide: how to try the app 
 ```
 src/simple_task_management/
   app.py          routes: the one page + HTML fragments          (HTTP layer, no SQL)
+  api.py          the JSON API under /api, mounted by app.py     (HTTP layer, no SQL)
   store.py        all SQL for tasks, assignees, updates, people   (data + business rules)
   recurrence.py   next-due-date arithmetic                        (pure functions)
   dates.py        "today" in IST, buckets, labels                 (pure functions)
@@ -39,7 +40,7 @@ src/simple_task_management/
   __init__.py     CLI: serve, create-admin, set-password, backup, seed-demo
   templates/      index.html (the page) + _fragments.html (swapped in by htmx) + _icons.html
                   + help.html (the user manual, a separate page)
-  static/         app.css (light/dark), board.js (~220 lines), htmx.min.js (vendored), help/ (manual screenshots)
+  static/         app.css (light/dark), board.js (~480 lines), htmx.min.js (vendored), help/ (manual screenshots)
 tests/            pytest; one file per area; fixed clock in conftest.py
 deploy/windows/   PowerShell scripts for install, status, restart, update
 docs/             you are here
@@ -49,7 +50,7 @@ docs/             you are here
 
 ```bash
 uv sync                                              # install
-uv run pytest                                        # 69 tests, ~4 seconds
+uv run pytest                                        # 97 tests, ~5 seconds
 uv run ruff check . && uv run ruff format .          # lint + format (CI enforces both)
 DATA_DIR=demo-data uv run simple-task-management seed-demo
 DATA_DIR=demo-data uv run simple-task-management serve --reload
