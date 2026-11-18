@@ -351,19 +351,24 @@ def build_api(
         """
         now_day = today()
         buckets = store.summary(conn, who=who, me=user["id"], today=now_day)
+        everyone = store.summary(conn, who="all", me=user["id"], today=now_day)
         return {
-            key: [
-                {
-                    "id": t["id"],
-                    "title": t["title"],
-                    "due": t["due"].isoformat(),
-                    "due_label": dates.due_label(t["due"], now_day)[0],
-                    "due_tone": dates.due_label(t["due"], now_day)[1],
-                    "repeat": t["repeat"],
-                }
-                for t in tasks
-            ]
-            for key, tasks in buckets.items()
+            **{
+                key: [
+                    {
+                        "id": t["id"],
+                        "title": t["title"],
+                        "due": t["due"].isoformat(),
+                        "due_label": dates.due_label(t["due"], now_day)[0],
+                        "due_tone": dates.due_label(t["due"], now_day)[1],
+                        "repeat": t["repeat"],
+                    }
+                    for t in tasks
+                ]
+                for key, tasks in buckets.items()
+            },
+            # Overdue work across the whole firm, so "My tasks" can never hide it.
+            "firm_overdue": len(everyone["overdue"]),
         }
 
     @api.get("/board", tags=["board"], response_model=schemas.Board)
@@ -472,6 +477,8 @@ def build_api(
             "detail": n["title"],
             "read": n["read_at"] is not None,
             "announce": bool(n["announce"]),
+            # Deadline and assignment changes stay on screen until dismissed; the rest fade.
+            "sticky": n["kind"] in store.STICKY_KINDS or "due date" in n["body"],
             "created_at": n["created_at"],
             "when": dates.stamp(n["created_at"], settings.tz, now_day),
             "due_label": label,

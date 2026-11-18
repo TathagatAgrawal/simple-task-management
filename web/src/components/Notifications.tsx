@@ -1,18 +1,34 @@
 // The bell, its panel, the phone's Alerts list, on-page messages and the settings form.
 import { useSignal } from "@preact/signals";
-import { alertState, enableAlerts, removeToast, testAlert, toasts } from "../alerts";
-import {
-  clearReadNotifications, dismissNotification, markAllRead, markRead, markUnread, meta,
-  modal, notifications, openNotification, refreshNotifications, refreshSettings,
-  saveNotificationSetting, settings, unread,
-} from "../state";
-import type { Mode } from "../api/types";
-import { Icon } from "./Icon";
 import { useEffect } from "preact/hooks";
+import { alertState, enableAlerts, removeToast, testAlert, toasts } from "../alerts";
+import type { Mode, Notification } from "../api/types";
+import {
+  clearReadNotifications, dismissNotifications, markAllRead, markRead, markUnread, meta, modal,
+  notifications, openNotification, panelOpen, refreshNotifications, refreshSettings,
+  saveNotificationSetting, setTab, settings, unread,
+} from "../state";
+import { badgeText, groupNotifications, type NotificationGroup } from "../util";
+import { Icon } from "./Icon";
 
-export function AlertsOptin() {
+const GROUPS_SHOWN = 8;
+const LINES_SHOWN = 3;
+
+/** A count in a red badge. Never wider than "99+", and the same on the bell and the tab bar. */
+export function CountBadge({ count, class: cls }: { count: number; class?: string }) {
   return (
-    <div class="alerts-optin" data-state={alertState.value}>
+    <span class={cls ?? "nbadge"} aria-hidden="true" hidden={count === 0}>
+      {badgeText(count)}
+    </span>
+  );
+}
+
+/** The desktop-alerts setup row. In the panel it shows only while there is something to do. */
+export function AlertsOptin({ always }: { always?: boolean }) {
+  const state = alertState.value;
+  if (!always && state !== "ask" && state !== "blocked") return null;
+  return (
+    <div class="alerts-optin" data-state={state}>
       <p class="s-ask">
         Get a desktop alert when someone changes one of your tasks.{" "}
         <button type="button" class="btn small primary" onClick={enableAlerts}>
@@ -30,13 +46,100 @@ export function AlertsOptin() {
         address, then reload.
       </p>
       <p class="s-unsupported">
-        Desktop alerts aren't available in this browser. New notifications still appear here and as a banner while the page is open.
+        Desktop alerts aren't available in this browser. You'll still see new changes in the bell and as a message on the page.
       </p>
     </div>
   );
 }
 
+function closePanel(): void {
+  const panel = document.getElementById("notif-panel");
+  if (panel?.matches(":popover-open")) panel.hidePopover();
+}
+
+function focusAfter(selector: string | null, fallback: string): void {
+  requestAnimationFrame(() => {
+    const target = (selector && document.querySelector<HTMLElement>(selector)) || document.querySelector<HTMLElement>(fallback);
+    target?.focus();
+  });
+}
+
+function GroupRow({ g, neighbour }: { g: NotificationGroup<Notification>; neighbour: string | null }) {
+  const newest = g.items[0]!;
+  const many = g.items.length;
+  const ids = g.items.map((n) => n.id);
+  const shown = g.items.slice(0, LINES_SHOWN);
+  const rest = many - shown.length;
+  const label = many > 1 ? `${many} changes to ${g.title}` : g.title;
+  const body = (
+    <>
+      <span class="ntitle">
+        {!g.read && <span class="sr-only">Unread. </span>}
+        {g.title}
+      </span>
+      {shown.map((n) => (
+        <span class="ntext" key={n.id}>
+          <strong>{n.actor}</strong> {n.body}
+        </span>
+      ))}
+      {rest > 0 && <span class="nmore">and {rest} earlier</span>}
+      {g.taskId === null && <span class="nmore">This task was deleted.</span>}
+      <span class="nmeta">
+        {newest.due_label && <span class={`chip ${newest.due_tone}`}>{newest.due_label}</span>}
+        <span>{newest.when}</span>
+      </span>
+    </>
+  );
+  return (
+    <li class={`nrow ${g.read ? "read" : "unread"}`} data-group={g.key}>
+      <span class="ndot" aria-hidden="true" />
+      {g.taskId !== null ? (
+        <button
+          type="button"
+          class="nmain"
+          onClick={() => {
+            closePanel();
+            // Opening the task marks everything in the row read, not only the newest.
+            const unreadIds = g.items.filter((n) => !n.read).map((n) => n.id);
+            if (unreadIds.length) void markRead(unreadIds);
+            openNotification(g.taskId, null);
+          }}
+        >
+          {body}
+        </button>
+      ) : (
+        <div class="nmain">{body}</div>
+      )}
+      <div class="nacts">
+        {g.read ? (
+          <button type="button" class="iconbtn" aria-label={`Mark as unread: ${label}`} title="Mark as unread" onClick={() => markUnread(ids)}>
+            <Icon name="dot" size={18} />
+          </button>
+        ) : (
+          <button type="button" class="iconbtn" aria-label={`Mark as read: ${label}`} title="Mark as read" onClick={() => markRead(ids)}>
+            <Icon name="check" size={18} />
+          </button>
+        )}
+        <button
+          type="button"
+          class="iconbtn"
+          aria-label={`Dismiss: ${label}`}
+          title="Dismiss"
+          onClick={async () => {
+            await dismissNotifications(ids);
+            // The row is gone: give keyboard focus to its neighbour so it isn't lost.
+            focusAfter(neighbour ? `[data-group="${neighbour}"] .nmain, [data-group="${neighbour}"] .iconbtn` : null, "#notif-panel .linkbtn");
+          }}
+        >
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+    </li>
+  );
+}
+
 export function NotificationList() {
+  const showAll = useSignal(false);
   const items = notifications.value;
   if (!items.length) {
     return (
@@ -47,71 +150,41 @@ export function NotificationList() {
       </p>
     );
   }
+  const groups = groupNotifications(items);
+  const visible = showAll.value ? groups : groups.slice(0, GROUPS_SHOWN);
   const anyUnread = items.some((n) => !n.read);
-  const allUnread = items.every((n) => !n.read);
+  const readCount = items.filter((n) => n.read).length;
   return (
     <>
       <div class="nbar">
         <button type="button" class="linkbtn" disabled={!anyUnread} onClick={markAllRead}>
           Mark all read
         </button>
-        <button type="button" class="linkbtn" disabled={allUnread} onClick={clearReadNotifications}>
+        <button
+          type="button"
+          class="linkbtn"
+          disabled={readCount === 0}
+          onClick={() => {
+            if (confirm(`Clear ${readCount} read notification${readCount === 1 ? "" : "s"}? This can't be undone.`)) {
+              void clearReadNotifications();
+            }
+          }}
+        >
           Clear read
         </button>
       </div>
       <ul class="nlist">
-        {items.map((n) => {
-          const body = (
-            <>
-              <span class="ntext">
-                {!n.read && <span class="sr-only">Unread. </span>}
-                <strong>{n.actor}</strong> {n.body}
-              </span>
-              <span class="ntitle">{n.title}</span>
-              <span class="nmeta">
-                {n.due_label && <span class={`chip ${n.due_tone}`}>{n.due_label}</span>}
-                <span>{n.when}</span>
-              </span>
-            </>
-          );
-          return (
-            <li key={n.id} class={`nrow ${n.read ? "read" : "unread"}`}>
-              <span class="ndot" aria-hidden="true" />
-              {n.task_id !== null ? (
-                <button type="button" class="nmain" onClick={() => {
-                  closePanel();
-                  openNotification(n.task_id, n.read ? null : n.id);
-                }}>
-                  {body}
-                </button>
-              ) : (
-                <div class="nmain">{body}</div>
-              )}
-              <div class="nacts">
-                {n.read ? (
-                  <button type="button" class="iconbtn" aria-label="Mark as unread" title="Mark as unread" onClick={() => markUnread(n.id)}>
-                    <Icon name="dot" size={18} />
-                  </button>
-                ) : (
-                  <button type="button" class="iconbtn" aria-label="Mark as read" title="Mark as read" onClick={() => markRead(n.id)}>
-                    <Icon name="check" size={18} />
-                  </button>
-                )}
-                <button type="button" class="iconbtn" aria-label="Dismiss" title="Dismiss" onClick={() => dismissNotification(n.id)}>
-                  <Icon name="close" size={18} />
-                </button>
-              </div>
-            </li>
-          );
-        })}
+        {visible.map((g, i) => (
+          <GroupRow key={g.key} g={g} neighbour={(visible[i + 1] ?? visible[i - 1])?.key ?? null} />
+        ))}
       </ul>
+      {groups.length > GROUPS_SHOWN && (
+        <button type="button" class="linkbtn nshow" onClick={() => (showAll.value = !showAll.value)}>
+          {showAll.value ? "Show fewer" : `Show ${groups.length - GROUPS_SHOWN} older`}
+        </button>
+      )}
     </>
   );
-}
-
-function closePanel(): void {
-  const panel = document.getElementById("notif-panel");
-  if (panel?.matches(":popover-open")) panel.hidePopover();
 }
 
 export function Bell() {
@@ -123,14 +196,12 @@ export function Bell() {
         type="button"
         class="bell"
         {...{ popovertarget: "notif-panel" }}
+        aria-expanded={panelOpen.value}
+        aria-controls="notif-panel"
         aria-label={`Notifications${count ? `, ${count} unread` : ""}`}
       >
         <Icon name="bell" size={20} />
-        {count > 0 && (
-          <span class="nbadge" aria-hidden="true">
-            {count < 10 ? count : "9+"}
-          </span>
-        )}
+        <CountBadge count={count} />
       </button>
     </span>
   );
@@ -143,10 +214,17 @@ export function BellPanel() {
       class="notif-panel"
       {...{ popover: "auto" }}
       aria-label="Notifications"
-      onToggle={(e) => (e as ToggleEvent).newState === "open" && void refreshNotifications()}
+      onToggle={(e) => {
+        const open = (e as ToggleEvent).newState === "open";
+        panelOpen.value = open;
+        if (open) {
+          e.currentTarget.scrollTop = 0; // always start at the top, where the tools are
+          void refreshNotifications();
+        }
+      }}
     >
       <div class="notif-head">
-        <strong>Notifications</strong>
+        <h2>Notifications</h2>
         <button
           type="button"
           class="linkbtn"
@@ -166,25 +244,43 @@ export function BellPanel() {
   );
 }
 
+/** Messages on the page: top right under the bell, above everything (even an open panel). */
 export function Toasts() {
+  const list = toasts.value;
+  useEffect(() => {
+    const el = document.getElementById("toasts");
+    if (!el) return;
+    if (list.length && !el.matches(":popover-open")) el.showPopover();
+    if (!list.length && el.matches(":popover-open")) el.hidePopover();
+  }, [list.length]);
   return (
-    <div id="toasts" role="status" aria-live="polite">
-      {toasts.value.map((t) => (
-        <div class="toast" key={t.id}>
-          <button
-            type="button"
-            class="toast-open"
-            onClick={() => {
-              openNotification(t.taskId, t.id);
-              removeToast(t.id);
-            }}
-          >
+    <div id="toasts" role="status" aria-live="polite" {...{ popover: "manual" }}>
+      {list.map((t) => (
+        <div class={`toast${t.sticky ? " sticky" : ""}`} key={t.id}>
+          <div class="toast-body">
             <strong>{t.text}</strong>
-            <span>{t.detail}</span>
-          </button>
-          <button type="button" class="iconbtn" aria-label="Dismiss alert" onClick={() => removeToast(t.id)}>
-            ×
-          </button>
+            <span class="toast-detail">{t.detail}</span>
+            {t.dueLabel && <span class={`chip ${t.dueTone}`}>{t.dueLabel}</span>}
+          </div>
+          <div class="toast-acts">
+            <button
+              type="button"
+              class="btn small primary"
+              onClick={() => {
+                removeToast(t.id);
+                if (t.summary) {
+                  const panel = document.getElementById("notif-panel");
+                  if (panel && getComputedStyle(panel).display !== "none") panel.showPopover();
+                  else setTab("alerts");
+                } else openNotification(t.taskId, t.notificationId);
+              }}
+            >
+              {t.summary ? "See all" : t.taskId === null ? "Dismiss" : "View"}
+            </button>
+            <button type="button" class="iconbtn" aria-label="Dismiss message" onClick={() => removeToast(t.id)}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -192,62 +288,70 @@ export function Toasts() {
 }
 
 export function NotificationSettings() {
-  const saved = useSignal("");
+  const saved = useSignal<{ kind: string; text: string } | null>(null);
   useEffect(() => {
     void refreshSettings();
   }, []);
   const current = settings.value;
   const kinds = meta.value?.notification_kinds ?? [];
   const modes = meta.value?.notification_modes ?? [];
+  const mode = (value: string) => modes.find((m) => m.value === value)?.label ?? value;
   return (
-    <>
-      <AlertsOptin />
-      <div id="notif-settings">
-        <h2>Notification settings</h2>
-        <p class="muted small">
-          Choose what you hear about when someone else changes a task you're on. You never hear about your own changes.
-        </p>
-        {current && (
-          <form class="nset" onSubmit={(e) => e.preventDefault()}>
-            {kinds.map((k) => (
-              <fieldset key={k.kind}>
-                <legend>{k.label}</legend>
-                <p class="muted small">{k.help}</p>
-                <div class="seg" role="radiogroup">
-                  {modes.map((m) => (
-                    <label class="segopt" key={m.value}>
-                      <input
-                        type="radio"
-                        name={`mode_${k.kind}`}
-                        value={m.value}
-                        checked={current[k.kind] === m.value}
-                        onChange={async () => {
-                          saved.value = "";
-                          try {
-                            await saveNotificationSetting(k.kind, m.value as Mode);
-                            saved.value = "Saved ✓";
-                          } catch {
-                            saved.value = "Couldn't save. Please try again.";
-                            void refreshSettings();
-                          }
-                        }}
-                      />
-                      <span>{m.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-            <p class="muted small">
-              <strong>Alert me</strong>: in your bell, a message on the page, and a desktop alert if you've turned those on.{" "}
-              <strong>Inbox only</strong>: in your bell, quietly. <strong>Off</strong>: not at all.
-            </p>
-            <p id="notif-saved" class="saved" aria-live="polite">
-              {saved.value}
-            </p>
-          </form>
-        )}
-      </div>
-    </>
+    <div id="notif-settings">
+      <h2 id="notif-settings-title">Notification settings</h2>
+      <p class="muted small">Choose what you hear about when someone else changes a task you're on. You never hear about your own changes.</p>
+      <ul class="nset-modes small">
+        <li>
+          <strong>{mode("alert")}</strong>: in your bell, as a message on the page, and as a desktop alert if you've turned those on below.
+        </li>
+        <li>
+          <strong>{mode("inbox")}</strong>: in your bell only, quietly.
+        </li>
+        <li>
+          <strong>{mode("off")}</strong>: you aren't told.
+        </li>
+      </ul>
+      <h3 class="nset-section">Desktop alerts</h3>
+      <AlertsOptin always />
+      <h3 class="nset-section">What you hear about</h3>
+      {current && (
+        <form class="nset" onSubmit={(e) => e.preventDefault()}>
+          {kinds.map((k) => (
+            <div class="nset-row" key={k.kind}>
+              <div class="nset-q" id={`nset-${k.kind}`}>
+                {k.label}
+                <span class="saved" aria-live="polite">
+                  {saved.value?.kind === k.kind ? saved.value.text : ""}
+                </span>
+              </div>
+              <p class="muted small">{k.help}</p>
+              <div class="seg" role="radiogroup" aria-labelledby={`nset-${k.kind}`}>
+                {modes.map((m) => (
+                  <label class="segopt" key={m.value}>
+                    <input
+                      type="radio"
+                      name={`mode_${k.kind}`}
+                      value={m.value}
+                      checked={current[k.kind] === m.value}
+                      onChange={async () => {
+                        saved.value = null;
+                        try {
+                          await saveNotificationSetting(k.kind, m.value as Mode);
+                          saved.value = { kind: k.kind, text: "Saved ✓" };
+                        } catch {
+                          saved.value = { kind: k.kind, text: "Couldn't save. Please try again." };
+                          void refreshSettings();
+                        }
+                      }}
+                    />
+                    <span>{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </form>
+      )}
+    </div>
   );
 }

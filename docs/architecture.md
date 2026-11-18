@@ -87,6 +87,12 @@ Pages hold one **Server-Sent Events** connection, `GET /api/events` (`events.py`
 - At shutdown `hub.close()` ends the streams, and `uvicorn.run(..., timeout_graceful_shutdown=3)` stops open connections from delaying a restart.
 - Tailscale Serve proxies the stream; if it were ever buffered, the 60-second refresh would still keep pages current.
 
+### Search, shortcuts and the drawer's feedback
+
+The search box filters the board and the strip by title in the browser (`matches` in `Board.tsx`); while it is in use the board loads older Done tasks too, so history is searchable. `n` opens New task and `/` focuses the search. A focused card moves with `[` and `]`; it keeps keyboard focus in its new column and a screen-reader message says where it went. The strip adds an "N more overdue across the firm" link when "Showing" hides other people's overdue work (`firm_overdue` in `GET /api/summary`).
+
+Saving shows its state (`saveStatus` in `state.ts`): "Saving…" and "Saved ✓" in the drawer's header, and a failure puts the server's reason under the field that failed (`fieldErrors`) instead of in the banner. The red banner now stays until dismissed or until the next change succeeds. A due date in the past asks for confirmation first.
+
 ### The task drawer
 
 Clicking a card or a summary item sets `openTaskId`, loads the task, and opens a modal `<dialog>` that slides in from the right *over* the board (like GitHub's project item view), so the columns never change width. It has the title in a header, and notes, the updates thread and the comment box in the main column. The drawer has a fixed height: only the thread scrolls, so the comment box is always visible at the bottom. The thread opens scrolled to the newest update, and stays where you left it if you've scrolled up. Status, assignees, due date, repeat and delete are in a right sidebar. Clicking outside, ✕, or Esc closes it. Esc first leaves a text field, which saves it, and only a second Esc closes the drawer.
@@ -117,9 +123,9 @@ The on-screen keyboard is handled with `window.visualViewport`: `gestures.ts` se
 
 `store._notify` runs inside every task change (see [data-model.md](data-model.md)). The client shows them in three ways:
 
-- **The bell and list** (`Notifications.tsx`): a popover under the bell on desktop and the Alerts tab on a phone. Each row can be opened (which marks it read), marked read or unread, or dismissed, and there are "Mark all read" and "Clear read". All of it is `/api/notifications` calls filtered by the signed-in person's id.
-- **Announcements** (`alerts.ts`): each browser remembers the newest notification id it has announced (a first visit announces nothing old). When something newer arrives that the person hasn't read and that isn't "inbox only" (`announce`), a message slides in on the page whenever the page is visible, plus a desktop (OS) notification through `sw.js` when the person has turned those on and the window isn't focused. Clicking either opens the task. The tab title shows the unread count.
-- **Settings**: a form (user menu, the bell's "Settings" link, or the phone's Me tab) where each person picks, per kind of change, *Alert me*, *Inbox only* or *Off*, saved on every click through `PATCH /api/me/notification-settings`.
+- **The bell and list** (`Notifications.tsx`): a popover under the bell on desktop and the Alerts tab on a phone. Consecutive changes to one task are folded into one row (`groupNotifications` in `util.ts`); a row can be opened (which marks all its changes read), marked read or unread, or dismissed, and there are "Mark all read" and "Clear read" (which asks first). The title and tools are sticky, only the first eight rows show until "Show older", and the desktop-alerts strip appears only while there is something to set up. All of it is `/api/notifications` calls filtered by the signed-in person's id.
+- **Announcements** (`state.ts` `refreshNotifications`, `alerts.ts`): each open tab remembers in memory the newest notification it has shown, so two tabs never take each other's messages, and a hidden tab waits and announces when it becomes visible. Messages are not shown while the list itself is open. A message is **sticky** (stays until dismissed) when the API says so (`sticky`: assigned, removed, deleted, or a due-date change); others fade after 15 seconds. More than three at once become one "N changes" message. Desktop (OS) alerts use a marker shared between tabs (`tb-os-alerted-<id>` in `localStorage`) so each one fires once, and only when the window isn't focused. Clicking either opens the task. The tab title shows the unread count, and every badge uses one cap, "99+".
+- **Settings**: a form (user menu, the bell's "Settings" link, or the phone's Me tab) where each person picks, per kind of change, *Pop up and bell*, *Bell only* or *Nothing* (API values `alert`, `inbox`, `off`), with "Saved ✓" beside the changed row, saved on every click through `PATCH /api/me/notification-settings`.
 
 Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
 

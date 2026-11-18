@@ -4,7 +4,22 @@ import { signal } from "@preact/signals";
 import type { Notification } from "./api/types";
 
 export type AlertState = "ask" | "on" | "blocked" | "unsupported";
-export type Toast = { id: number; text: string; detail: string; taskId: number | null };
+export type Toast = {
+  id: number;
+  text: string;
+  detail: string;
+  taskId: number | null;
+  /** The notification to mark read when the message is opened; null for a summary message. */
+  notificationId: number | null;
+  /** Deadline and assignment changes stay until dismissed; the rest fade after 15 seconds. */
+  sticky: boolean;
+  dueLabel: string | null;
+  dueTone: string;
+  /** More than a few arrived at once: one message that opens the list instead. */
+  summary: boolean;
+};
+
+const MAX_TOASTS = 3;
 
 export const toasts = signal<Toast[]>([]);
 export const alertState = signal<AlertState>(readAlertState());
@@ -63,20 +78,50 @@ export function removeToast(id: number): void {
   toasts.value = toasts.value.filter((t) => t.id !== id);
 }
 
-function addToast(n: Notification): void {
-  const toast: Toast = { id: n.id, text: n.text, detail: n.detail, taskId: n.task_id };
-  toasts.value = [...toasts.value.filter((t) => t.id !== n.id), toast].slice(-3);
-  setTimeout(() => removeToast(n.id), 15000);
+function push(toast: Toast): void {
+  toasts.value = [...toasts.value.filter((t) => t.id !== toast.id), toast].slice(-MAX_TOASTS);
+  if (!toast.sticky) setTimeout(() => removeToast(toast.id), 15000);
 }
 
-/** Announce notifications that just arrived (oldest first). */
-export function announce(fresh: Notification[]): void {
-  const looking = document.visibilityState === "visible";
-  const focused = looking && document.hasFocus();
+/**
+ * Show new notifications as messages on the page, oldest first. When more arrive at once than
+ * fit, show one summary message that opens the list, so nothing is hidden behind a pile.
+ */
+export function showToasts(fresh: Notification[]): void {
+  if (fresh.length > MAX_TOASTS) {
+    const titles = [...new Set(fresh.map((n) => n.title))];
+    push({
+      id: -1,
+      text: `${fresh.length} changes to your tasks`,
+      detail: titles.slice(0, 2).join(", ") + (titles.length > 2 ? ` and ${titles.length - 2} more` : ""),
+      taskId: null,
+      notificationId: null,
+      sticky: fresh.some((n) => n.sticky),
+      dueLabel: null,
+      dueTone: "",
+      summary: true,
+    });
+    return;
+  }
   for (const n of fresh) {
-    if (looking) addToast(n);
-    if (alertState.value === "on" && !focused) {
-      void osNotify({ id: n.id, text: n.text, detail: n.detail, taskId: n.task_id });
-    }
+    push({
+      id: n.id,
+      text: n.text,
+      detail: n.detail,
+      taskId: n.task_id,
+      notificationId: n.id,
+      sticky: n.sticky,
+      dueLabel: n.due_label,
+      dueTone: n.due_tone,
+      summary: false,
+    });
+  }
+}
+
+/** Show desktop (OS) alerts for new notifications, when the person has turned them on. */
+export function showOsAlerts(fresh: Notification[]): void {
+  if (alertState.value !== "on") return;
+  for (const n of fresh) {
+    void osNotify({ id: n.id, text: n.text, detail: n.detail, taskId: n.task_id });
   }
 }

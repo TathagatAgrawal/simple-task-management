@@ -52,3 +52,14 @@ def test_long_groups_keep_every_task_and_label_them(asha, users):
     assert len(late) == 5
     assert {t["due_label"] for t in late} == {"4 days late"}
     assert {t["due_tone"] for t in late} == {"red"}
+
+
+def test_firm_overdue_ignores_the_filter(asha, ravi, users):
+    """The overdue count for the whole firm is sent even when "My tasks" hides those tasks."""
+    new_task(asha, title="Mine", due="2026-11-10", assignee_ids=[users["asha"]])
+    new_task(asha, title="Meera's", due="2026-11-09", assignee_ids=[users["meera"]])
+    new_task(asha, title="Later", due="2026-12-20", assignee_ids=[users["meera"]])
+    mine = ravi.get("/api/summary", params={"who": "me"}).json()
+    assert mine["overdue"] == [] and mine["firm_overdue"] == 2
+    assert asha.get("/api/summary", params={"who": "me"}).json()["firm_overdue"] == 2
+    assert len(asha.get("/api/summary", params={"who": "all"}).json()["overdue"]) == 2

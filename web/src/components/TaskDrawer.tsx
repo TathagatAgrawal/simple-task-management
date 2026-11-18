@@ -3,11 +3,33 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Task, Update } from "../api/types";
 import { dismissGesture, isPhone } from "../gestures";
 import {
-  closeTask, deleteTask, meta, moveTask, openTask, openTaskId, people, postUpdate, saveTask, task,
+  closeTask, deleteTask, fieldErrors, meta, moveTask, openTask, openTaskId, people, postUpdate, saveStatus,
+  saveTask, task,
 } from "../state";
-import { isTyping } from "../util";
+import { isBefore, isTyping } from "../util";
 import { Avatar, Linked } from "./bits";
 import { Icon } from "./Icon";
+
+/** The problem with saving one field, shown right under it. */
+function FieldError({ field }: { field: string }) {
+  const message = fieldErrors.value[field];
+  return message ? (
+    <p class="field-error" role="alert">
+      {message}
+    </p>
+  ) : null;
+}
+
+/** "Saving…", "Saved ✓" or "Couldn't save" in the drawer's header, so a change is never silent. */
+function SaveStatus() {
+  const status = saveStatus.value;
+  const text = status === "saving" ? "Saving…" : status === "saved" ? "Saved ✓" : status === "error" ? "Couldn't save" : "";
+  return (
+    <span class={`save-status ${status}`} role="status" aria-live="polite">
+      {text}
+    </span>
+  );
+}
 
 /** A value that follows the server's copy, except while the person is editing the field. */
 function useFieldValue<T extends HTMLElement>(server: string) {
@@ -22,39 +44,46 @@ function useFieldValue<T extends HTMLElement>(server: string) {
 function Title({ t }: { t: Task }) {
   const { ref, value, setValue } = useFieldValue<HTMLTextAreaElement>(t.title);
   return (
-    <textarea
-      ref={ref}
-      class="title-input"
-      rows={1}
-      maxLength={200}
-      required
-      aria-label="Title"
-      value={value}
-      onInput={(e) => setValue(e.currentTarget.value)}
-      onChange={() => value !== t.title && saveTask(t.id, { title: value })}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-      }}
-    />
+    <div class="title-wrap">
+      <textarea
+        ref={ref}
+        class="title-input"
+        rows={1}
+        maxLength={200}
+        required
+        aria-label="Title"
+        value={value}
+        onInput={(e) => setValue(e.currentTarget.value)}
+        onChange={(e) => e.currentTarget.value !== t.title && saveTask(t.id, { title: e.currentTarget.value })}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+      />
+      <FieldError field="title" />
+    </div>
   );
 }
 
 function Notes({ t }: { t: Task }) {
   const { ref, value, setValue } = useFieldValue<HTMLTextAreaElement>(t.notes);
   return (
-    <textarea
-      ref={ref}
-      class="notes-input"
-      rows={2}
-      maxLength={5000}
-      placeholder="Add notes…"
-      value={value}
-      onInput={(e) => setValue(e.currentTarget.value)}
-      onChange={() => value !== t.notes && saveTask(t.id, { notes: value })}
-    />
+    <>
+      <textarea
+        ref={ref}
+        class="notes-input"
+        rows={2}
+        maxLength={5000}
+        placeholder="Add notes…"
+        aria-label="Notes"
+        value={value}
+        onInput={(e) => setValue(e.currentTarget.value)}
+        onChange={(e) => e.currentTarget.value !== t.notes && saveTask(t.id, { notes: e.currentTarget.value })}
+      />
+      <FieldError field="notes" />
+    </>
   );
 }
 
@@ -108,12 +137,19 @@ function Thread({ updates, justPosted }: { updates: Update[]; justPosted: { curr
 
 function Composer({ id, justPosted }: { id: number; justPosted: { current: boolean } }) {
   const [body, setBody] = useState("");
+  const [problem, setProblem] = useState("");
   const submit = async (e?: Event) => {
     e?.preventDefault();
     if (!body.trim()) return;
     justPosted.current = true;
-    if (await postUpdate(id, body)) setBody("");
-    else justPosted.current = false;
+    const error = await postUpdate(id, body);
+    if (error === null) {
+      setBody("");
+      setProblem("");
+    } else {
+      justPosted.current = false;
+      setProblem(error); // the draft stays, so nothing typed is lost
+    }
   };
   return (
     <form class="composer" onSubmit={submit}>
@@ -129,6 +165,11 @@ function Composer({ id, justPosted }: { id: number; justPosted: { current: boole
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       />
+      {problem && (
+        <p class="field-error" role="alert">
+          {problem}
+        </p>
+      )}
       <div class="row end">
         <button class="btn primary" type="submit">
           Post update
@@ -164,6 +205,7 @@ function Assignees({ t }: { t: Task }) {
           </label>
         ))}
       </div>
+      <FieldError field="assignees" />
     </form>
   );
 }
@@ -173,14 +215,15 @@ function Panel({ t }: { t: Task }) {
   const statuses = meta.value?.statuses ?? [];
   const repeats = meta.value?.repeats ?? [];
   return (
-    <div class="panel" data-task-id={t.id}>
+    <div class="panel" data-task-id={t.id} tabIndex={-1} autofocus>
       <header class="panel-head">
         <button type="button" class="btn icon back-btn" onClick={closeTask} aria-label="Back to the board">
           <Icon name="chevron-left" size={22} />
         </button>
         <Title t={t} />
         <span class="muted task-number">#{t.id}</span>
-        <button type="button" class="btn icon" onClick={closeTask} aria-label="Close" autofocus>
+        <SaveStatus />
+        <button type="button" class="btn icon" onClick={closeTask} aria-label="Close">
           <Icon name="close" size={18} />
         </button>
       </header>
@@ -204,6 +247,7 @@ function Panel({ t }: { t: Task }) {
                 </button>
               ))}
             </div>
+            <FieldError field="status" />
           </div>
 
           <Assignees t={t} />
@@ -220,10 +264,23 @@ function Panel({ t }: { t: Task }) {
                 required
                 defaultValue={t.due}
                 key={t.due}
-                onChange={(e) => e.currentTarget.value && e.currentTarget.value !== t.due && saveTask(t.id, { due: e.currentTarget.value })}
+                onChange={(e) => {
+                  const input = e.currentTarget;
+                  const date = input.value;
+                  if (!date || date === t.due) return;
+                  // A date in the past is usually a slip of the finger, and an overdue task shouts at everyone.
+                  if (t.status !== "done" && meta.value && isBefore(date, meta.value.today)) {
+                    if (!confirm("That date is in the past, so this task will show as overdue. Save it anyway?")) {
+                      input.value = t.due;
+                      return;
+                    }
+                  }
+                  void saveTask(t.id, { due: date });
+                }}
               />
               {t.due_label && t.status !== "done" && <span class={`chip ${t.due_tone}`}>{t.due_label}</span>}
             </div>
+            <FieldError field="due" />
           </div>
 
           <div class="side-section">
@@ -237,6 +294,7 @@ function Panel({ t }: { t: Task }) {
                 </option>
               ))}
             </select>
+            <FieldError field="repeat" />
             {t.series.length > 0 && (
               <details class="series">
                 <summary class="muted small">Other occurrences ({t.series.length})</summary>

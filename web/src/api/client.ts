@@ -15,6 +15,12 @@ export class ApiError extends Error {
 
 let csrfToken = "";
 let onSignedOut: () => void = () => {};
+let onSuccess: () => void = () => {};
+
+/** Called after every successful change (not a read), so stale error messages can clear. */
+export function setSuccessHandler(handler: () => void): void {
+  onSuccess = handler;
+}
 
 /** Remember the CSRF token that unsafe requests must carry (from ``GET /api/me``). */
 export function setCsrf(token: string): void {
@@ -55,6 +61,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     }
     throw new ApiError(message, res.status);
   }
+  if (method !== "GET") onSuccess();
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }

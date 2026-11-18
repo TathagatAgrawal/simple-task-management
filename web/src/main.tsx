@@ -6,7 +6,8 @@ import { api, setSignedOutHandler } from "./api/client";
 import { App } from "./App";
 import { initGestures } from "./gestures";
 import { startLive, stopLive } from "./live";
-import { endSession, me, openNotification, openTask, startSession } from "./state";
+import { endSession, me, modal, openNotification, openTask, startSession } from "./state";
+import { isTyping } from "./util";
 
 setSignedOutHandler(() => {
   stopLive();
@@ -25,6 +26,19 @@ navigator.serviceWorker?.addEventListener("message", (event: MessageEvent) => {
   const data = event.data as { type?: string; taskId?: number | null; id?: number | string } | null;
   if (data?.type === "open-task") {
     openNotification(data.taskId ?? null, typeof data.id === "number" ? data.id : null);
+  }
+});
+
+// Single-key shortcuts for people who live in the board: n = new task, / = search.
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || !me.value || me.value.must_change_password) return;
+  if (isTyping(document.activeElement) || document.querySelector("dialog[open]")) return;
+  if (e.key === "n") {
+    e.preventDefault();
+    modal.value = "new-task";
+  } else if (e.key === "/") {
+    e.preventDefault();
+    document.getElementById("q")?.focus();
   }
 });
 

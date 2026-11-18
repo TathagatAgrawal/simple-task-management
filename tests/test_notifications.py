@@ -227,7 +227,7 @@ def test_inbox_only_is_listed_but_not_announced(asha, ravi, conn, users):
 
 
 def test_saving_settings_and_going_back_to_default(ravi, conn, users):
-    """A saved choice is returned; choosing "Alert me" again removes the stored row."""
+    """A saved choice is returned; choosing the default again removes the stored row."""
     r = ravi.patch("/api/me/notification-settings", json={"moved": "inbox", "comment": "off"})
     assert r.status_code == 200
     assert r.json()["moved"] == "inbox" and r.json()["comment"] == "off"
@@ -290,3 +290,30 @@ def test_migration_backfills_the_kind_of_old_notifications(tmp_path):
     assert db.migrate(conn) == 3
     kinds = [r[0] for r in conn.execute("SELECT kind FROM notifications ORDER BY id")]
     assert kinds == ["assigned", "removed", "comment", "deleted", "moved", "moved", "changed"]
+
+
+def test_deadline_and_assignment_changes_are_sticky(asha, ravi, users):
+    """Assignments and due-date changes are marked to stay on screen; edits, moves and comments fade."""
+    task_id = new_task(asha, assignee_ids=[users["ravi"]])
+    asha.patch(f"/api/tasks/{task_id}", json={"due": "2026-11-20"})
+    asha.patch(f"/api/tasks/{task_id}", json={"title": "Renamed"})
+    asha.post(f"/api/tasks/{task_id}/updates", json={"body": "Hello"})
+    move(asha, task_id, "doing")
+    sticky = {n["body"]: n["sticky"] for n in ravi.get("/api/notifications").json()}
+    assert sticky == {
+        "assigned you a new task": True,
+        "changed the due date from Sat 14 Nov to Fri 20 Nov": True,
+        "renamed this from “A task”": False,
+        "commented: Hello": False,
+        "moved this to Doing": False,
+    }
+
+
+def test_removal_and_deletion_are_sticky(asha, ravi, users):
+    """Being taken off a task or having it deleted also stays on screen until dismissed."""
+    task_id = new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
+    asha.patch(f"/api/tasks/{task_id}", json={"assignee_ids": [users["meera"]]})
+    asha.delete(f"/api/tasks/{task_id}")
+    sticky = {n["body"]: n["sticky"] for n in ravi.get("/api/notifications").json()}
+    assert sticky["removed you from this task"] is True
+    assert sticky["assigned you a new task"] is True
