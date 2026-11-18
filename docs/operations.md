@@ -20,6 +20,8 @@ How the app is deployed and kept running at the firm. Step-by-step instructions 
 
 Staff can put the app on their home screen so it opens full-screen with an icon: **iPhone** Safari → Share → *Add to Home Screen*; **Android** Chrome → ⋮ → *Install app* (or *Add to Home screen*). This needs no server setup beyond what's above, but Android only offers a real install over HTTPS, which `tailscale serve` provides. There is no offline mode, so Tailscale must be connected. On iPhone the installed app keeps its own sign-in, so each person signs in once more there.
 
+**Notifications.** Staff are notified inside the app whenever someone else changes a task they're on. To also get desktop alerts, each person presses *Turn on desktop alerts* once per browser and chooses Allow; this needs the HTTPS address above and works while the board is open in a tab or window. Nothing to configure on the server, and no extra service. On an iPhone, desktop alerts only work for the Home Screen app and only while it is open.
+
 ## Scripts (`deploy/windows/`)
 
 All of them except `uninstall.ps1` dot-source `common.ps1`, which sets `$AppDir`, `$TaskName`, `$Port` and helpers such as `Get-UvPath`, `Test-AppHealthy`, `Stop-App` and `Start-App`.

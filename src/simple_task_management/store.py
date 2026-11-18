@@ -1,7 +1,8 @@
 """Data access for tasks, assignees, updates and people.
 
 Every write that changes a task also records an ``event`` row in that task's updates thread,
-inside the same transaction, so the history can never disagree with the task itself.
+inside the same transaction, so the history can never disagree with the task itself. The same
+transaction also tells the task's other assignees (see "notifications" below).
 """
 
 import re
@@ -18,6 +19,7 @@ STATUSES = ("todo", "doing", "done")
 STATUS_LABELS = {"todo": "To do", "doing": "Doing", "done": "Done"}
 MAX_TITLE = 200
 MAX_TEXT = 5000
+NOTIFICATION_KEEP_DAYS = 30
 USERNAME_RE = re.compile(r"^[a-z0-9._-]{2,32}$")
 
 
@@ -400,6 +402,108 @@ def _names(conn: sqlite3.Connection, ids: list[int]) -> str:
     return ", ".join(by_id.get(i, "?") for i in ids)
 
 
+# ---------------------------------------------------------------- notifications
+
+
+def _notify(
+    conn: sqlite3.Connection,
+    actor: sqlite3.Row,
+    task_id: int,
+    title: str,
+    body: str,
+    now: str,
+    *,
+    recipients: list[int] | None = None,
+) -> None:
+    """Tell people what ``actor`` just did to a task; never the actor themselves.
+
+    By default the recipients are the task's current assignees. Callers pass ``recipients``
+    when someone who is no longer (or not yet) on the task should hear about it too. Call this
+    inside the same ``with conn:`` block as the change. Read notifications older than a month are
+    deleted here, so the table stays small without a background job.
+    """
+    if recipients is None:
+        recipients = [
+            r[0]
+            for r in conn.execute(
+                "SELECT user_id FROM task_assignees WHERE task_id = ?", (task_id,)
+            )
+        ]
+    wanted = [uid for uid in dict.fromkeys(recipients) if uid != actor["id"]]
+    if wanted:
+        marks = ",".join("?" * len(wanted))
+        active = [
+            r[0]
+            for r in conn.execute(
+                f"SELECT id FROM users WHERE is_active = 1 AND id IN ({marks})", wanted
+            )
+        ]
+        conn.executemany(
+            """INSERT INTO notifications (user_id, task_id, task_title, actor_id, body, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            [(uid, task_id, title, actor["id"], body, now) for uid in active],
+        )
+    cutoff = (datetime.fromisoformat(now) - timedelta(days=NOTIFICATION_KEEP_DAYS)).isoformat(
+        timespec="seconds"
+    )
+    conn.execute("DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at < ?", (cutoff,))
+
+
+def notifications_for(
+    conn: sqlite3.Connection, user_id: int, *, after: int = 0, unread_only: bool = False
+) -> list[sqlite3.Row]:
+    """A person's notifications, newest first (at most 50), optionally only newer than ``after``."""
+    return conn.execute(
+        f"""SELECT n.id, n.task_id, n.body, n.created_at, n.read_at, a.name AS actor_name,
+                   COALESCE(t.title, n.task_title) AS title, t.due_date, t.status
+            FROM notifications n
+            LEFT JOIN tasks t ON t.id = n.task_id
+            LEFT JOIN users a ON a.id = n.actor_id
+            WHERE n.user_id = ? AND n.id > ?{" AND n.read_at IS NULL" if unread_only else ""}
+            ORDER BY n.id DESC LIMIT 50""",
+        (user_id, after),
+    ).fetchall()
+
+
+def notification_counts(conn: sqlite3.Connection, user_id: int) -> tuple[int, int]:
+    """Return ``(unread count, newest notification id)`` for the bell."""
+    row = conn.execute(
+        """SELECT COUNT(*) FILTER (WHERE read_at IS NULL), COALESCE(MAX(id), 0)
+           FROM notifications WHERE user_id = ?""",
+        (user_id,),
+    ).fetchone()
+    return row[0], row[1]
+
+
+def set_notification_read(
+    conn: sqlite3.Connection, user_id: int, notification_id: int | None, *, read: bool
+) -> None:
+    """Mark one of my notifications (or all of them, when the id is None) read or unread."""
+    where, args = "user_id = ?", [user_id]
+    if notification_id is not None:
+        where, args = where + " AND id = ?", [user_id, notification_id]
+    with conn:
+        conn.execute(
+            f"UPDATE notifications SET read_at = ? WHERE {where}",
+            [now_iso() if read else None, *args],
+        )
+
+
+def dismiss_notifications(
+    conn: sqlite3.Connection, user_id: int, notification_id: int | None
+) -> None:
+    """Delete one of my notifications, or every one I've already read when the id is None."""
+    if notification_id is None:
+        sql, args = "DELETE FROM notifications WHERE user_id = ? AND read_at IS NOT NULL", [user_id]
+    else:
+        sql, args = (
+            "DELETE FROM notifications WHERE user_id = ? AND id = ?",
+            [user_id, notification_id],
+        )
+    with conn:
+        conn.execute(sql, args)
+
+
 def create_task(
     conn: sqlite3.Connection,
     actor: sqlite3.Row,
@@ -445,6 +549,7 @@ def create_task(
         if repeat != "none":
             parts.append(f"repeats {repeat}")
         _event(conn, task_id, actor["id"], " · ".join(parts), now)
+        _notify(conn, actor, task_id, title, "assigned you a new task", now)
     return task_id
 
 
@@ -508,6 +613,7 @@ def update_task(
         conn.execute(f"UPDATE tasks SET {sets} WHERE id = ?", [*changes.values(), task_id])
         for body in events:
             _event(conn, task_id, actor["id"], body, now)
+        _notify(conn, actor, task_id, changes.get("title", task["title"]), " · ".join(events), now)
 
 
 def set_assignees(
@@ -538,6 +644,12 @@ def set_assignees(
         )
         conn.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (now, task_id))
         _event(conn, task_id, actor["id"], " · ".join(parts), now)
+        title = _require_task(conn, task_id)["title"]
+        _notify(conn, actor, task_id, title, "assigned you to this task", now, recipients=added)
+        _notify(conn, actor, task_id, title, "removed you from this task", now, recipients=removed)
+        # Everyone who was already on the task hears who joined or left.
+        kept = [i for i in wanted if i not in added]
+        _notify(conn, actor, task_id, title, " · ".join(parts), now, recipients=kept)
 
 
 def move_task(
@@ -561,6 +673,7 @@ def move_task(
             (status, now if status == "done" else None, now, task_id),
         )
         _event(conn, task_id, actor["id"], body, now)
+        _notify(conn, actor, task_id, task["title"], body, now)
         if status == "done" and task["repeat"] != "none":
             return _spawn_next(conn, task, now, today)
     return None
@@ -615,7 +728,7 @@ def _spawn_next(conn: sqlite3.Connection, task: sqlite3.Row, now: str, today: da
 
 def add_comment(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int, body: str) -> None:
     """Post a comment / progress update on a task."""
-    _require_task(conn, task_id)
+    task = _require_task(conn, task_id)
     body = clean_text(body, "An update", required=True)
     now = now_iso()
     with conn:
@@ -624,9 +737,17 @@ def add_comment(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int, body
             (task_id, actor["id"], body, now),
         )
         conn.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (now, task_id))
+        excerpt = body if len(body) <= 120 else body[:119].rstrip() + "…"
+        _notify(conn, actor, task_id, task["title"], f"commented: {excerpt}", now)
 
 
-def delete_task(conn: sqlite3.Connection, task_id: int) -> None:
-    """Permanently delete a task and its thread (for cleaning up mistakes)."""
+def delete_task(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int) -> None:
+    """Permanently delete a task and its thread (for cleaning up mistakes).
+
+    The assignees are told first; their notification outlives the task, keeping its title.
+    """
+    task = get_task(conn, task_id)
     with conn:
+        if task is not None:
+            _notify(conn, actor, task_id, task["title"], "deleted this task", now_iso())
         conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))

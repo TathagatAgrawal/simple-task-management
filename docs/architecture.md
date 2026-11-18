@@ -114,9 +114,19 @@ The on-screen keyboard is handled with `window.visualViewport`: `board.js` sets 
 
 ### Installing it on a phone
 
-`index.html` links `/manifest.webmanifest` (served by `app.py` from `static/manifest.webmanifest`, `display: standalone`) and sets the Apple meta tags, so "Add to Home Screen" gives an icon that opens the app without browser chrome. Icons are in `static/icons/` (`icon.svg` is the source; the PNGs are full-bleed squares because iOS and Android apply their own rounding). There is deliberately **no service worker**: Chrome no longer needs one to install, and the app doesn't work offline. The installed app on iOS has its own cookie storage, so each person signs in once more inside it.
+`index.html` links `/manifest.webmanifest` (served by `app.py` from `static/manifest.webmanifest`, `display: standalone`) and sets the Apple meta tags, so "Add to Home Screen" gives an icon that opens the app without browser chrome. Icons are in `static/icons/` (`icon.svg` is the source; the PNGs are full-bleed squares because iOS and Android apply their own rounding). The only service worker is `static/sw.js` (served at `/sw.js`), which exists solely to hand desktop alerts to the operating system and open the right task when one is clicked. It caches nothing, and the app doesn't work offline. The installed app on iOS has its own cookie storage, so each person signs in once more inside it.
 
 ## The JSON API
+
+## Notifications
+
+`store._notify` runs inside every task change (see [data-model.md](data-model.md)). The page reads them through three small pieces:
+
+- `GET /notifications/badge` is the bell, swapped in place (`#bell-badge`) every 20 seconds, on focus and after changes. It carries `data-newest` and `data-unread`, and `board.js` compares `data-newest` with the last id this browser announced. Anything newer is fetched from `GET /api/notifications?unread=true&after=N` and shown as a toast whenever the page is visible, plus an OS notification (through `sw.js`) when the person has turned desktop alerts on and the window isn't focused.
+- `GET /notifications` is the list fragment, rendered into the bell's popover (`#notif-list`) and the phone's Alerts tab (`#alerts-list`). Its buttons post to `/notifications/{id}/read`, `/unread`, `/dismiss`, `/read-all` and `/clear-read`, which return `204` with `HX-Trigger: notifications-changed`. `store.py` filters every one by the signed-in person's id.
+- The JSON mirror is under `/api/notifications`.
+
+Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
 
 `/api` is a second interface to the same data, for any client that would rather not parse HTML fragments (another front end, a phone app, a script). It is additive: the htmx UI keeps using the HTML fragment routes above, and both call the same `store.*` functions, so rules and history events can't drift apart. The schema is published at `/api/openapi.json`.
 
