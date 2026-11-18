@@ -17,12 +17,13 @@ PASSWORD = "correct-horse"
 
 @pytest.fixture
 def settings(tmp_path):
-    """Settings pointing at a temporary data directory, with backups off."""
+    """Settings pointing at a temporary data directory, with backups and background pushing off."""
     return Settings(
         data_dir=tmp_path / "data",
         backup_dir=tmp_path / "backups",
         log_dir=tmp_path / "logs",
         backups_enabled=False,
+        push_enabled=False,
     )
 
 

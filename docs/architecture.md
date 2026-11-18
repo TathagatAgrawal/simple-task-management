@@ -34,6 +34,7 @@ __init__.py (CLI) ─┐
 | `app.py` | The page shell, `/help`, the manifest, `/sw.js`, `/healthz`, the static files, and mounting the API | Contain SQL or business rules, render task data |
 | `api.py` | The JSON API (`/api/...`): request shapes, bearer-or-cookie auth, JSON errors, and announcing changes to the event hub. A sub-app that `create_app` mounts, so its error handling and OpenAPI schema are its own | Contain SQL or business rules (call `store.*`), render HTML |
 | `schemas.py` | The response models that make the OpenAPI schema (and so the client's generated types) exact | Contain logic |
+| `push.py` | Web Push: the signing key, the background sender that pushes new notifications after they are saved, the test alert | Be called inside a task's transaction (a push problem must never lose a change) |
 | `events.py` | The live-update hub and the Server-Sent Events stream | Know what the topics mean to the client |
 | `store.py` | All SQL; validation (`clean_title`, `parse_due`, ...); business rules (events, recurrence spawning, admin safety rails) | Know about HTTP, requests or templates |
 | `dates.py` | The firm's "today", summary buckets, display labels | Read the clock (it takes `now`/`today` as arguments) |
@@ -62,7 +63,7 @@ web/                        the client's source (needs Node to build; the app do
   src/api/client.ts         one typed function per endpoint, CSRF header, error messages
   src/state.ts              the shared state (signals) and every action that changes it
   src/live.ts               the live-update connection (below)
-  src/alerts.ts             on-page messages and desktop alerts
+  src/alerts.ts             on-page messages, desktop alerts, and turning on push for this device
   src/gestures.ts           phone swipe, press-and-hold, sheet dismissal, keyboard height
   src/components/*.tsx      one file per area: Board, TaskDrawer, Notifications, Dialogs, Chrome, Auth, Modal
 ```
@@ -125,9 +126,17 @@ The on-screen keyboard is handled with `window.visualViewport`: `gestures.ts` se
 
 - **The bell and list** (`Notifications.tsx`): a popover under the bell on desktop and the Alerts tab on a phone. Consecutive changes to one task are folded into one row (`groupNotifications` in `util.ts`); a row can be opened (which marks all its changes read), marked read or unread, or dismissed, and there are "Mark all read" and "Clear read" (which asks first). The title and tools are sticky, only the first eight rows show until "Show older", and the desktop-alerts strip appears only while there is something to set up. All of it is `/api/notifications` calls filtered by the signed-in person's id.
 - **Announcements** (`state.ts` `refreshNotifications`, `alerts.ts`): each open tab remembers in memory the newest notification it has shown, so two tabs never take each other's messages, and a hidden tab waits and announces when it becomes visible. Messages are not shown while the list itself is open. A message is **sticky** (stays until dismissed) when the API says so (`sticky`: assigned, removed, deleted, or a due-date change); others fade after 15 seconds. More than three at once become one "N changes" message. Desktop (OS) alerts use a marker shared between tabs (`tb-os-alerted-<id>` in `localStorage`) so each one fires once, and only when the window isn't focused. Clicking either opens the task. The tab title shows the unread count, and every badge uses one cap, "99+".
-- **Settings**: a form (user menu, the bell's "Settings" link, or the phone's Me tab) where each person picks, per kind of change, *Pop up and bell*, *Bell only* or *Nothing* (API values `alert`, `inbox`, `off`), with "Saved ✓" beside the changed row, saved on every click through `PATCH /api/me/notification-settings`.
+- **Settings**: a form (user menu, the bell's "Settings" link, or the phone's Me tab) where each person picks, per kind of change, *Alert and bell*, *Bell only* or *Nothing* (API values `alert`, `inbox`, `off`), with "Saved ✓" beside the changed row, saved on every click through `PATCH /api/me/notification-settings`.
 
 Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
+
+## Web Push (alerts when the board is closed)
+
+`push.py` sends them; `static/sw.js` shows them. Pressing *Turn on alerts on this device* (`enablePush` in `alerts.ts`) registers the service worker, asks the browser for permission, subscribes with the server's public key (`GET /api/push`) and saves the result (`PUT /api/push/subscription`). Each phone or computer has its own row in `push_subscriptions`.
+
+After a change is saved, `Pusher.loop` (started in `lifespan`, woken by the same hub as live updates, plus every 30 seconds as a safety net) finds notifications with `pushed_at IS NULL`, builds a short message for each person whose mode is "alert", encrypts it with `pywebpush` and posts it to Apple, Google or Mozilla's push service, which wakes the device. Every notification is then stamped handled, so a restart never repeats one, and anything older than 10 minutes is stamped without being sent. A 404 or 410 deletes the subscription; any other failure is logged and skipped. Tests replace `Pusher.send` with a recorder.
+
+**On a device with push turned on, the page shows no popup or desktop alert of its own** (`systemAlerts()` in `alerts.ts`, checked in `refreshNotifications`): the system banner is the only alert, and the page shows just the bell number and, where supported, the app-icon badge. A device without push keeps the on-page message and desktop alert. The service worker always shows what it is sent (iOS requires every push to show something), using the tag `n-<id>` and `requireInteraction` for sticky kinds. Each person chooses whether banners carry the task's title (`users.push_details`, `PATCH /api/push`); when off they read "A task changed". The app's signing key lives in `app_settings`, so backups carry it. Settings: `PUSH` (on by default) and `PUSH_CONTACT`.
 
 ## Updates
 

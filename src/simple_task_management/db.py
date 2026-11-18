@@ -74,6 +74,26 @@ MIGRATIONS: list[str] = [
         value TEXT NOT NULL
     ) WITHOUT ROWID;
     """,
+    # 5 -> 6: Web Push. One row per phone or computer a person turned alerts on for. A notification
+    # is pushed once: pushed_at is set when it has been handled, and everything that exists now is
+    # marked handled so the update itself never sends old news. push_details says whether the
+    # banner shows the task's title (1) or only "a task changed" (0).
+    """
+    CREATE TABLE push_subscriptions (
+        id         INTEGER PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users (id),
+        endpoint   TEXT    NOT NULL UNIQUE,
+        p256dh     TEXT    NOT NULL,
+        auth       TEXT    NOT NULL,
+        created_at TEXT    NOT NULL
+    );
+
+    CREATE INDEX push_subscriptions_user ON push_subscriptions (user_id);
+
+    ALTER TABLE notifications ADD COLUMN pushed_at TEXT;
+    UPDATE notifications SET pushed_at = created_at;
+    ALTER TABLE users ADD COLUMN push_details INTEGER NOT NULL DEFAULT 1;
+    """,
 ]
 
 

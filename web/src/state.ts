@@ -2,7 +2,7 @@
 // saving changes back. Components read the signals and call these functions; only this file and
 // ``api/client.ts`` know how the server is reached.
 import { effect, signal } from "@preact/signals";
-import { alertState, showOsAlerts, showToasts } from "./alerts";
+import { alertState, forgetDevice, refreshPush, setIconBadge, showOsAlerts, showToasts, systemAlerts } from "./alerts";
 import { api, ApiError, setCsrf, setSuccessHandler } from "./api/client";
 import type {
   Board, Card, Me, Meta, Mode, Notification, Person, Settings, Status, Summary, Task, TaskIn,
@@ -237,25 +237,29 @@ export const refreshNotifications = coalesced(async () => {
   const looking = document.visibilityState === "visible";
   const focused = looking && document.hasFocus();
 
+  // When this device gets system alerts (push), the page shows none of its own: only the bell number.
+  const bySystem = systemAlerts();
+  if (bySystem) setIconBadge(counts.unread);
+
   if (toastSeen === null) toastSeen = counts.newest; // a fresh page announces nothing old
   if (looking) {
     const fresh = announceable.filter((n) => n.id > (toastSeen ?? 0)).reverse();
     toastSeen = Math.max(toastSeen, counts.newest);
     // While the list itself is open the new row appears in it, so a message would only cover its tools.
     const listOpen = panelOpen.value || (tab.value === "alerts" && window.matchMedia("(max-width: 640px)").matches);
-    if (fresh.length && !listOpen) showToasts(fresh);
+    if (fresh.length && !listOpen && !bySystem) showToasts(fresh);
   }
 
   const osKey = "tb-os-alerted-" + user.id;
   const stored = recall(osKey);
   const osSeen = stored === null ? counts.newest : Number(stored);
-  if (alertState.value === "on" && !focused) {
+  if (alertState.value === "on" && !focused && !bySystem) {
     const fresh = announceable.filter((n) => n.id > osSeen).reverse();
     if (fresh.length) {
       showOsAlerts(fresh);
       remember(osKey, String(Math.max(osSeen, counts.newest)));
     }
-  } else if (alertState.value !== "on" || looking) {
+  } else if (alertState.value !== "on" || looking || bySystem) {
     remember(osKey, String(Math.max(osSeen, counts.newest)));
   }
 });
@@ -282,7 +286,10 @@ export function startSession(user: Me): void {
   setCsrf(user.csrf_token);
   applyTheme(user.theme);
   me.value = user;
-  if (!user.must_change_password) void refreshAll();
+  if (!user.must_change_password) {
+    void refreshAll();
+    void refreshPush();
+  }
 }
 
 export function endSession(): void {
@@ -295,6 +302,7 @@ export function endSession(): void {
   unread.value = 0;
   newest.value = 0;
   modal.value = null;
+  setIconBadge(0);
 }
 
 export async function signIn(username: string, password: string): Promise<void> {
@@ -304,6 +312,7 @@ export async function signIn(username: string, password: string): Promise<void> 
 
 export async function signOut(): Promise<void> {
   try {
+    await forgetDevice();
     await api.signOut();
   } finally {
     endSession();

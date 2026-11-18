@@ -63,7 +63,7 @@ def _rows(conn: sqlite3.Connection) -> list[tuple]:
 def test_open_tasks_get_one_notification_per_person_on_them(tmp_path):
     """Everyone on an open task is told once; finished, self-assigned and removed are left out."""
     conn = _old_database(tmp_path / "old.db")
-    assert db.migrate(conn) == 5
+    assert db.migrate(conn) == 6
     assert _rows(conn) == [(2, 1), (2, 4), (2, 6), (3, 1)]
 
 
@@ -113,7 +113,7 @@ def test_a_database_that_already_has_notifications_gets_no_duplicates(tmp_path):
         (NOW,),
     )
     conn.commit()
-    assert db.migrate(conn) == 5
+    assert db.migrate(conn) == 6
     assert _rows(conn) == [(2, 1), (2, 4), (2, 6), (3, 1)]
     bodies = [
         r[0]
@@ -125,7 +125,7 @@ def test_a_database_that_already_has_notifications_gets_no_duplicates(tmp_path):
 def test_a_new_install_has_nothing_to_backfill(tmp_path):
     """An empty database migrates cleanly and starts with no notifications."""
     conn = db.connect(tmp_path / "new.db")
-    assert db.migrate(conn) == 5
+    assert db.migrate(conn) == 6
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 

@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import auth, backup, dates, db, events, updates
+from . import auth, backup, dates, db, events, push, updates
 from .api import build_api
 from .config import Settings, load_settings
 
@@ -60,6 +60,7 @@ def create_app(
     throttle = auth.LoginThrottle()
     hub = events.Hub()
     checker = updates.Checker()
+    pusher = push.Pusher(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -72,6 +73,8 @@ def create_app(
             tasks.append(asyncio.create_task(backup.nightly_loop(settings)))
         if settings.update_check_enabled:
             tasks.append(asyncio.create_task(checker.loop(settings.update_check_hours, hub)))
+        if settings.push_enabled:
+            tasks.append(asyncio.create_task(pusher.loop(hub)))
         yield
         hub.close()
         for task in tasks:
@@ -81,6 +84,7 @@ def create_app(
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.hub = hub  # tests subscribe to it to watch what gets announced
+    app.state.pusher = pusher  # tests give it a recording sender instead of the real one
     app.state.checker = checker  # tests replace its answer instead of reaching for GitHub
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
@@ -107,6 +111,7 @@ def create_app(
             throttle=throttle,
             hub=hub,
             checker=checker,
+            pusher=pusher,
         ),
     )
 

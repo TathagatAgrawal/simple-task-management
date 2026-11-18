@@ -1,7 +1,10 @@
 // The bell, its panel, the phone's Alerts list, on-page messages and the settings form.
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import { alertState, enableAlerts, removeToast, testAlert, toasts } from "../alerts";
+import {
+  alertState, disablePush, enableAlerts, enablePush, pushError, pushInfo, pushState, removeToast, setPushDetails,
+  testAlert, testPush, toasts,
+} from "../alerts";
 import type { Mode, Notification } from "../api/types";
 import {
   clearReadNotifications, dismissNotifications, markAllRead, markRead, markUnread, meta, modal,
@@ -23,31 +26,63 @@ export function CountBadge({ count, class: cls }: { count: number; class?: strin
   );
 }
 
-/** The desktop-alerts setup row. In the panel it shows only while there is something to do. */
+/**
+ * The alerts setup row. Where the browser can do push, it turns on system alerts for this device
+ * (they arrive even with the board closed). Otherwise it offers the older desktop alerts.
+ * In the panel it shows only while there is something to do.
+ */
 export function AlertsOptin({ always }: { always?: boolean }) {
-  const state = alertState.value;
-  if (!always && state !== "ask" && state !== "blocked") return null;
+  const push = pushState.value;
+  const system = push !== "unsupported" && push !== "server-off";
+  const state = system ? push : alertState.value;
+  if (!always && state !== "ask" && state !== "blocked" && state !== "install") return null;
+  const details = pushInfo.value?.details ?? true;
   return (
     <div class="alerts-optin" data-state={state}>
       <p class="s-ask">
-        Get a desktop alert when someone changes one of your tasks.{" "}
-        <button type="button" class="btn small primary" onClick={enableAlerts}>
-          Turn on desktop alerts
+        {system
+          ? "Get an alert on this device when someone changes one of your tasks, even when the board is closed."
+          : "Get a desktop alert when someone changes one of your tasks."}{" "}
+        <button type="button" class="btn small primary" onClick={system ? enablePush : enableAlerts}>
+          {system ? "Turn on alerts on this device" : "Turn on desktop alerts"}
         </button>
       </p>
       <p class="s-on">
-        Desktop alerts are on for this browser.{" "}
-        <button type="button" class="linkbtn" onClick={testAlert}>
+        {system ? "Alerts are on for this device." : "Desktop alerts are on for this browser."}{" "}
+        <button type="button" class="linkbtn" onClick={system ? testPush : testAlert}>
           Send a test
         </button>
+        {system && (
+          <>
+            {" "}
+            <button type="button" class="linkbtn" onClick={disablePush}>
+              Turn off
+            </button>
+          </>
+        )}
       </p>
       <p class="s-blocked">
-        Desktop alerts are blocked in this browser. To get them, allow notifications for this site from the padlock beside the
+        Alerts are blocked in this browser. To get them, allow notifications for this site from the padlock beside the
         address, then reload.
       </p>
-      <p class="s-unsupported">
-        Desktop alerts aren't available in this browser. You'll still see new changes in the bell and as a message on the page.
+      <p class="s-install">
+        To get alerts on an iPhone or iPad, add this page to your Home Screen (Share, then Add to Home Screen), open it from
+        there, and turn alerts on in the notification settings.
       </p>
+      <p class="s-unsupported">
+        Alerts aren't available in this browser. You'll still see new changes in the bell and as a message on the page.
+      </p>
+      {always && system && push === "on" && (
+        <label class="alerts-details">
+          <input type="checkbox" checked={details} onChange={(e) => void setPushDetails(e.currentTarget.checked)} /> Show the
+          task's name in alerts. Turn this off to keep it off a lock screen: alerts then say only "A task changed".
+        </label>
+      )}
+      {pushError.value && (
+        <p class="s-error" role="alert">
+          {pushError.value}
+        </p>
+      )}
     </div>
   );
 }
@@ -302,7 +337,7 @@ export function NotificationSettings() {
       <p class="muted small">Choose what you hear about when someone else changes a task you're on. You never hear about your own changes.</p>
       <ul class="nset-modes small">
         <li>
-          <strong>{mode("alert")}</strong>: in your bell, as a message on the page, and as a desktop alert if you've turned those on below.
+          <strong>{mode("alert")}</strong>: in your bell, and as an alert on each device where you've turned alerts on below (a message on the page if a device has none).
         </li>
         <li>
           <strong>{mode("inbox")}</strong>: in your bell only, quietly.
@@ -311,7 +346,7 @@ export function NotificationSettings() {
           <strong>{mode("off")}</strong>: you aren't told.
         </li>
       </ul>
-      <h3 class="nset-section">Desktop alerts</h3>
+      <h3 class="nset-section">Alerts on this device</h3>
       <AlertsOptin always />
       <h3 class="nset-section">What you hear about</h3>
       {current && (

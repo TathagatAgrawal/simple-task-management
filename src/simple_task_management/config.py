@@ -20,6 +20,10 @@ class Settings:
     # Look for a newer version on GitHub every few hours (it only looks; update.ps1 installs).
     update_check_enabled: bool = False
     update_check_hours: float = 6
+    # Phone and desktop alerts that arrive even when the board is closed (Web Push).
+    push_enabled: bool = True
+    # Contact address push services want on file ("mailto:..." or an https address).
+    push_contact: str = "mailto:taskboard@example.com"
 
     @property
     def db_path(self) -> Path:
@@ -70,4 +74,6 @@ def load_settings(base_dir: Path | None = None) -> Settings:
         backups_enabled=env.get("BACKUPS_ENABLED", "1") not in {"0", "false", "no"},
         update_check_enabled=env.get("UPDATE_CHECK", "1") not in {"0", "false", "no"},
         update_check_hours=float(env.get("UPDATE_CHECK_HOURS", "6")),
+        push_enabled=env.get("PUSH", "1") not in {"0", "false", "no"},
+        push_contact=env.get("PUSH_CONTACT", "mailto:taskboard@example.com"),
     )

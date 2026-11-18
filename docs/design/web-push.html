@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Push and Creator Notifications Plan</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f3f1ec; --text: #1d1d1b; --muted: #5f5d57;
+    --border: #e2dfd7; --accent: #2f5d50; --accent-soft: #e3eee9; --red: #b4362b; --red-soft: #f8e4e1;
+    --amber: #8a5900; --amber-soft: #fbefd6; --blue: #2d5b9a; --blue-soft: #e2ebf7; --grey-soft: #eceae4;
+    --code-bg: #f3f1ec; --shadow: 0 6px 18px rgba(0,0,0,.12); --on-fill: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161614; --surface: #1f1f1c; --surface-2: #2a2a26; --text: #ecebe6; --muted: #a8a69e;
+      --border: #3a3934; --accent: #7fb8a4; --accent-soft: #23362f; --red: #ec8a7f; --red-soft: #3d2320;
+      --amber: #e3b45c; --amber-soft: #3a2f18; --blue: #8fb3e6; --blue-soft: #1f2b3d; --grey-soft: #2e2d29;
+      --code-bg: #2a2a26; --shadow: 0 6px 18px rgba(0,0,0,.5); --on-fill: #12130f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 16px 96px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 10px; letter-spacing: -0.01em; }
+  h2 { font-size: 24px; margin: 56px 0 12px; padding-top: 24px; border-top: 1px solid var(--border); }
+  h3 { font-size: 18px; margin: 28px 0 8px; }
+  p, li { max-width: 78ch; }
+  .lede { font-size: 18px; color: var(--muted); max-width: 70ch; }
+  a { color: var(--accent); }
+  code { font: 13.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.55; }
+  .file { display: inline-block; font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin: 14px 0 -4px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+  .callout { border: 1px solid var(--accent); background: var(--surface); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+  .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
+  .callout strong:first-child { display: block; margin-bottom: 2px; }
+  .answer { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 20px 0; }
+  .answer p { margin: 6px 0; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--grey-soft); color: var(--muted); }
+  .tag.ok { background: var(--accent-soft); color: var(--accent); }
+  .tag.warn { background: var(--amber-soft); color: var(--amber); }
+  .tag.no { background: var(--red-soft); color: var(--red); }
+  .phases { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); margin: 16px 0; }
+  .phase { border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 14px 16px; }
+  .phase h3 { margin-top: 0; }
+  .phase ul { padding-left: 20px; margin: 6px 0; }
+  .diagram { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 8px; }
+  .diagram svg { min-width: 780px; width: 100%; height: auto; display: block; }
+  .diagram text { fill: var(--text); font: 13px -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .diagram .muted { fill: var(--muted); font-size: 12px; }
+  .diagram .lane { fill: var(--surface-2); stroke: var(--border); }
+  .diagram .life { stroke: var(--border); stroke-dasharray: 4 4; }
+  .diagram .arrow { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+  .diagram .arrow.dash { stroke-dasharray: 5 4; stroke: var(--muted); }
+  .diagram .dot { fill: var(--accent); }
+  .diagram .num { fill: var(--on-fill); font-weight: 700; font-size: 11px; }
+  .diagram marker path { fill: var(--accent); }
+
+  /* ---- mockups ---- */
+  .mock { border: 1px solid var(--border); border-radius: 12px; background: var(--bg); padding: 16px; margin: 14px 0; }
+  .mock-cap { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+  .topbar { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; position: relative; }
+  .topbar .sp { flex: 1; }
+  .btn { font: inherit; font-size: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+  .btn.small { min-height: 30px; padding: 3px 10px; font-size: 13px; }
+  .bell { position: relative; width: 38px; height: 38px; display: inline-grid; place-items: center; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; }
+  .bell svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--red); color: var(--on-fill); font-size: 12px; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--bg); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); width: 100%; max-width: 400px; overflow: hidden; }
+  .panel header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .panel header strong { font-size: 15px; }
+  .panel header .sp { flex: 1; }
+  .linkbtn { font: inherit; font-size: 13px; color: var(--accent); background: none; border: 0; padding: 4px 6px; cursor: default; text-decoration: underline; text-underline-offset: 2px; }
+  .nrow { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); align-items: start; }
+  .nrow:last-child { border-bottom: 0; }
+  .nrow .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; background: var(--accent); }
+  .nrow.read .dot { background: transparent; border: 1.5px solid var(--border); }
+  .nrow.unread { background: var(--accent-soft); }
+  .nrow .t { font-size: 14px; line-height: 1.4; }
+  .nrow.unread .t strong { font-weight: 700; }
+  .nrow.read .t { color: var(--muted); }
+  .nrow .meta { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--grey-soft); color: var(--muted); }
+  .chip.red { background: var(--red-soft); color: var(--red); }
+  .chip.amber { background: var(--amber-soft); color: var(--amber); }
+  .acts { display: flex; gap: 2px; }
+  .iconbtn { width: 32px; height: 32px; display: inline-grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: default; }
+  .iconbtn:hover { background: var(--grey-soft); }
+  .iconbtn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+  .pfoot { padding: 8px 14px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .optin { background: var(--blue-soft); color: var(--text); border-bottom: 1px solid var(--border); padding: 10px 14px; font-size: 13.5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .optin.on { background: var(--accent-soft); }
+  .optin.off { background: var(--amber-soft); }
+  .optin .sp { flex: 1; min-width: 140px; }
+  .phone { width: 300px; max-width: 100%; border: 6px solid var(--text); border-radius: 28px; background: var(--bg); overflow: hidden; margin: 0 auto; }
+  .phone .bar { background: var(--surface); padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+  .phone .nrow { grid-template-columns: 10px 1fr; }
+  .phone .nrow .acts { grid-column: 2; margin-left: -6px; }
+  .phone .iconbtn { width: 44px; height: 44px; }
+  .toast { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 14px; border-radius: 10px; width: 100%; max-width: 380px; font-size: 14px; line-height: 1.35; }
+  .toast .ic { width: 40px; height: 40px; border-radius: 9px; background: #2f5d50; color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .toast b { display: block; font-size: 14px; }
+  .toast small { opacity: .75; }
+  .toast.win { background: #2b2b2b; color: #f3f3f3; box-shadow: 0 8px 24px rgba(0,0,0,.35); border: 1px solid #444; }
+  .toast.mac { background: rgba(240,240,240,.92); color: #1d1d1f; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); border: 1px solid #d2d2d2; }
+  .toast.ios { background: rgba(240,240,240,.92); color: #1d1d1f; border-radius: 22px; box-shadow: 0 8px 24px rgba(0,0,0,.25); border: 1px solid #d2d2d2; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (max-width: 640px) { h1 { font-size: 28px; } .wrap { padding-top: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Web Push, and telling the person who created a task</h1>
+<p class="lede">One pull request with two changes. First, fix a gap in the notifications we already have: the person who created a task is told nothing when someone else works on it. Second, add Web Push, so alerts reach a phone's lock screen and a desktop even when the board is closed. This is the design record. It has been built; where it differs from the code, the code wins.</p>
+
+<div class="answer">
+  <p><strong>The short answer.</strong> A push is sent for exactly the same events that already put a line in the bell, to the same people, and only to people who have "Pop up and bell" turned on for that kind of change. Nothing new is announced; the only new thing is that the alert can now reach a closed app. The creator fix adds one more person to that list: whoever created the task.</p>
+</div>
+
+<h2>1. Change one: the creator hears about their task</h2>
+<h3>What happens today</h3>
+<p>Asha creates a task and assigns it to Ravi alone. Ravi marks it Done, or posts an update. Asha gets nothing. The reason is in <code>store._notify</code>: unless a caller passes a list, it tells the task's <em>current assignees</em>, minus whoever made the change. Asha made the task but is not an assignee, so she is on nobody's list.</p>
+<h3>The fix</h3>
+<p>The default recipients become the task's assignees <strong>plus the person who created it</strong>, still minus whoever made the change, with duplicates removed. It is one rule in one place, so every kind of change gets it: edits, moves, comments, assignee changes, deletion. Each person's own settings still apply, so Asha can turn comments down to "Bell only" or "Nothing" like anyone else.</p>
+<div class="tablewrap">
+<table>
+  <tr><th>Situation</th><th>Asha (creator, not assigned)</th><th>Ravi (assignee)</th></tr>
+  <tr><td>Asha creates the task and assigns Ravi</td><td><span class="tag no">Nothing</span> (she did it)</td><td><span class="tag ok">"assigned you a new task"</span></td></tr>
+  <tr><td>Ravi marks it Done, or moves it</td><td><span class="tag ok">Told</span> (new)</td><td><span class="tag no">Nothing</span> (he did it)</td></tr>
+  <tr><td>Ravi posts an update</td><td><span class="tag ok">Told</span> (new)</td><td><span class="tag no">Nothing</span></td></tr>
+  <tr><td>Ravi changes the due date, title or notes</td><td><span class="tag ok">Told</span> (new)</td><td><span class="tag no">Nothing</span></td></tr>
+  <tr><td>Ravi adds Meena to the task</td><td><span class="tag ok">Told</span> (new)</td><td><span class="tag no">Nothing</span></td></tr>
+  <tr><td>Asha edits the task</td><td><span class="tag no">Nothing</span></td><td><span class="tag ok">Told</span> (as today)</td></tr>
+  <tr><td>Asha creates a task and assigns it to herself</td><td><span class="tag no">Nothing</span></td><td>n/a</td></tr>
+  <tr><td>Meena (a third person, not on the task) edits it</td><td><span class="tag ok">Told</span> (new)</td><td><span class="tag ok">Told</span></td></tr>
+</table>
+</div>
+<h3>Details worth knowing</h3>
+<ul>
+  <li><strong>No double alerts.</strong> If the creator is also an assignee they get one notification, not two.</li>
+  <li><strong>Only active people.</strong> A creator who has been removed from the firm, or a task with no recorded creator, is skipped, as for any recipient today.</li>
+  <li><strong>"You were assigned" and "you were removed" stay as they are.</strong> Those two go only to the person added or removed. The creator instead hears the summary line ("added Meena · removed Ravi") through the ordinary "changed" notification.</li>
+  <li><strong>Recurring tasks.</strong> The next occurrence copies its creator, so the person who set up a quarterly return keeps hearing about every quarter's copy.</li>
+  <li><strong>Existing tasks.</strong> No backfill. Creators start hearing about changes made after the update. Their existing bell is not rewritten.</li>
+  <li><strong>The old test stays true.</strong> "A new task tells the assignees but not the creator" still holds, because the creator is the person who made the change.</li>
+</ul>
+
+<h2>2. Change two: when and what a push sends</h2>
+<h3>The rule</h3>
+<p>Every time a notification is written for someone with the setting <strong>Pop up and bell</strong> for that kind, a push is sent to every phone or computer where that person has turned phone and desktop alerts on. People set to <strong>Bell only</strong> or <strong>Nothing</strong> for a kind get no push for it. The person who made the change never gets one. There are no other triggers: no daily digest, no overdue reminder, no marketing.</p>
+<div class="tablewrap">
+<table>
+  <tr><th>What happened</th><th>Who gets the push</th><th>Lock screen shows (title / text)</th></tr>
+  <tr><td>A task is created with you on it</td><td>Each person assigned, except the creator</td><td><code>Filing: GSTR-3B for Mehta</code><br>Asha assigned you a new task</td></tr>
+  <tr><td>You are added to a task</td><td>The people added</td><td><code>Filing: GSTR-3B for Mehta</code><br>Asha assigned you to this task</td></tr>
+  <tr><td>You are removed from a task</td><td>The people removed</td><td><code>Filing: GSTR-3B for Mehta</code><br>Asha removed you from this task</td></tr>
+  <tr><td>Title, notes, due date or repeat changed</td><td>The assignees and the creator, except whoever changed it</td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi changed the due date to 20 Nov</td></tr>
+  <tr><td>Moved between To do, Doing, Done, or reopened</td><td>The assignees and the creator, except the mover</td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi marked this Done</td></tr>
+  <tr><td>Someone posts an update</td><td>The assignees and the creator, except the author</td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi commented: Filed, ARN attached</td></tr>
+  <tr><td>Assignees change on a task you are already on</td><td>The people who stayed, and the creator</td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi added Meena</td></tr>
+  <tr><td>A task is deleted</td><td>The assignees and the creator, except whoever deleted it</td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi deleted this task</td></tr>
+</table>
+</div>
+<h3>What is not sent</h3>
+<ul>
+  <li>Anything for a kind you set to "Bell only" or "Nothing".</li>
+  <li>Anything for a change you made yourself.</li>
+  <li>A reminder that a task is due or overdue. Those need a scheduler and a decision about timing, so they are out of this pull request. The bell and the overdue strip still show them when the board is open.</li>
+  <li>A push for a task that was already a notification before the update. The first release marks every existing notification as already handled, so nobody is flooded.</li>
+</ul>
+<h3>On the phone</h3>
+<div class="mock">
+  <div class="grid2">
+    <div class="phone">
+      <div class="bar"><span>Lock screen</span><span class="chip">9:41</span></div>
+      <div class="nrow unread"><span class="dot"></span><div class="t"><strong>Filing: GSTR-3B for Mehta</strong><br>Ravi marked this Done<div class="meta">Task Board · now</div></div></div>
+      <div class="nrow unread"><span class="dot"></span><div class="t"><strong>Reply to notice, Shah Traders</strong><br>Asha assigned you a new task<div class="meta">Task Board · 2 min ago</div></div></div>
+    </div>
+    <div>
+      <p>Tapping a banner opens the app straight to that task, the same as tapping an on-page alert does today. On a device with alerts turned on, the board shows no popup of its own, ever: the system banner is the only alert, and inside the board you see just the bell number and the list. A device without alerts turned on keeps today's on-page message.</p>
+      <p>The banner text is the one decision for you, see section 7. The mock above shows the recommended choice.</p>
+    </div>
+  </div>
+</div>
+
+<h2>3. How it works</h2>
+<ol>
+  <li><strong>Turning it on.</strong> A person opens the bell's settings and presses <em>Turn on alerts on this device</em>. The browser asks permission and hands the app a private address for that device. The app saves it against that person. Each device has its own, so a phone and a laptop can both be on.</li>
+  <li><strong>A change is made.</strong> The existing transaction writes the task change, the history line and the notification rows together, exactly as now. Nothing about that changes, so a push problem can never lose or block a task change.</li>
+  <li><strong>Sending.</strong> Once the change is saved, a small background task in the app finds notification rows that should alert and have not been pushed yet, encrypts a short message for each of that person's devices, and posts it to Apple, Google or Mozilla's push service. That service wakes the device. The row is then marked pushed, so a restart never sends it twice.</li>
+  <li><strong>Showing it.</strong> The device wakes the service worker (<code>sw.js</code>), which shows the banner. Tapping it opens the task.</li>
+  <li><strong>Cleaning up.</strong> If a push service says the device is gone (it answers 404 or 410), the subscription is deleted. Signing out removes that device's subscription. Pressing <em>Turn off</em> does too.</li>
+</ol>
+
+<h3>One place for alerts: the system</h3>
+<ul>
+  <li><strong>Turned on for this device</strong> (permission granted and a subscription saved): the board never shows its own popup. The bell number and list update live. Alerts come from the system: the iPhone banner, the Windows toast, the macOS notification.</li>
+  <li><strong>Not turned on</strong> (never enabled, blocked, or a browser that cannot do push): the board keeps showing its on-page message, and the desktop alert while the tab is hidden, exactly as today. Nobody loses alerts.</li>
+  <li><strong>Stays on screen until dismissed:</strong> assignments, removals, deletions and due-date changes (the same notifications the server already marks sticky) use <code>requireInteraction</code> on desktop. Others fade on their own. iOS ignores this and uses its normal banner.</li>
+  <li><strong>Icon badge:</strong> each push carries the person's unread count, and the service worker sets it on the Home Screen or installed-app icon with the Badging API (iOS 16.4 and newer, installed desktop apps). It is a bonus: if a platform ignores it, nothing else changes. Untested on iOS until tried on a phone.</li>
+  <li><strong>Menu wording:</strong> "Pop up and bell" is renamed "Alert and bell", because on these devices the alert is the system's, not a pop-up in the board.</li>
+</ul>
+
+<h3>What gets added</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Piece</th><th>Detail</th></tr>
+  <tr><td>One Python dependency</td><td><code>pywebpush</code>, which brings <code>cryptography</code>. This is the first dependency added since launch and the only one with a compiled part, which is why the original proposal held it back. Windows installs prebuilt wheels, so no compiler is needed. It was asked for, so the plan accepts the cost.</td></tr>
+  <tr><td>Migration 6</td><td>A <code>push_subscriptions</code> table (one row per device: person, endpoint, two keys, created time) and a <code>pushed_at</code> column on <code>notifications</code>. Existing rows are stamped as pushed in the same atomic step. Old code on the new database keeps working, as with the earlier migrations.</td></tr>
+  <tr><td>A signing key</td><td>Push services need the app to prove who it is, with a key pair made once. It is stored in the existing <code>app_settings</code> table, so the nightly backup includes it and moving to a new laptop carries it over. Losing it would only mean everyone presses the button again.</td></tr>
+  <tr><td><code>push.py</code></td><td>The sender and the background loop, wired like <code>updates.py</code>: started with the app, woken by the same live-update hub, and every failure caught and logged.</td></tr>
+  <tr><td>API</td><td><code>GET /api/push</code> (public key and whether this device is on), <code>POST /api/push</code> to subscribe, <code>DELETE /api/push</code> to unsubscribe, and a <em>Send a test</em> button that pushes one sample to the person's own devices.</td></tr>
+  <tr><td>Client</td><td>A button in the notification settings, a push handler in <code>sw.js</code>, and an update to the existing "alerts" state so one control covers on-page, desktop and phone alerts.</td></tr>
+  <tr><td>Setting</td><td><code>PUSH_CONTACT</code> in <code>.env</code>, a contact address push services want on file. It has a default so nothing needs editing.</td></tr>
+  <tr><td>Docs</td><td><code>data-model.md</code> (the new table and column), <code>architecture.md</code>, <code>operations.md</code> (internet access needed, key, what a failure looks like), the <code>/help</code> manual, the root README, and <code>notifications.html</code>, which currently calls Phase 3 not built.</td></tr>
+</table>
+</div>
+
+<h2>4. What each device needs</h2>
+<div class="tablewrap">
+<table>
+  <tr><th>Device</th><th>Needs</th><th>Works when closed?</th></tr>
+  <tr><td>iPhone or iPad</td><td>iOS 16.4 or newer. The board must be added to the Home Screen and opened from that icon once, then alerts turned on from inside it. Safari tabs cannot receive pushes.</td><td><span class="tag ok">Yes</span>, including the lock screen and Notification Centre</td></tr>
+  <tr><td>Android (Chrome)</td><td>Allow notifications when asked. Installing is optional.</td><td><span class="tag ok">Yes</span></td></tr>
+  <tr><td>Windows or Mac desktop</td><td>Allow notifications when asked.</td><td><span class="tag warn">Yes, while the browser is running</span>, even with no board tab open. If the browser is fully quit, nothing can wake it.</td></tr>
+  <tr><td>The Windows PC running the app</td><td>Internet access out to the push services, which it already has for Tailscale.</td><td>If the PC is off, no changes happen, so there is nothing to push.</td></tr>
+</table>
+</div>
+<p>Tailscale does not get in the way. The phone reaches the board through Tailscale, but pushes come from the push services over the ordinary internet, and the message itself is encrypted so the push service cannot read it. It does mean task text passes through Apple's or Google's servers in that encrypted form.</p>
+
+<h2>5. Checks and tests</h2>
+<ul>
+  <li><strong>Creator rule.</strong> One test per row of the table in section 1, including the duplicate, inactive and no-creator cases, and a test that the creator's "Nothing" setting is honoured.</li>
+  <li><strong>Push rules.</strong> With the sender replaced by a recording fake: a push goes out only for rows set to alert, never to the actor, to every device of a person, and never twice for one row. A 410 reply removes the subscription. A sender that raises does not stop the loop, the task change, or other people's pushes.</li>
+  <li><strong>Migration.</strong> A version 5 database upgrades with its notifications marked pushed and no stray pushes at startup, and the migration is atomic like the others.</li>
+  <li><strong>API.</strong> Subscribe, replace, unsubscribe, and that one person cannot read or remove another's subscription.</li>
+  <li><strong>Client.</strong> The settings control in each state (can turn on, on, blocked by the browser, unsupported), and the push handler's skip-when-visible rule.</li>
+  <li><strong>Whole flow in a browser.</strong> I can check the button, subscription and handler on a Mac. I cannot receive a real push on an iPhone from here. After the PR is up, you would try it on your phone over Tailscale with the demo data, and I would give you the exact steps. Delivery to Apple is the one part that stays unproven until then.</li>
+</ul>
+
+<h2>6. Risks</h2>
+<ul>
+  <li><strong>Apple is strict.</strong> iOS needs every push to show something, and drops a subscription that sends silent ones. So the service worker always shows the banner, on every device, whether or not the board is open. Because the board shows no popup of its own on those devices, nobody sees two alerts. Untested: whether iOS draws the banner while the Home Screen app is in front. Either way there is one alert, and the bell number updates.</li>
+  <li><strong>Slower than before.</strong> A push travels through Apple, Google or Mozilla, so it takes a second or a few. The bell number still updates instantly over the live connection.</li>
+  <li><strong>Lock screens are visible.</strong> Task titles can name clients. That is the reason section 7 asks about banner text.</li>
+  <li><strong>One more thing that can break on the PC.</strong> A failed push never affects the board, and the in-app bell and on-page alerts keep working. The only symptom would be "my phone stopped buzzing". Failures are written to the app's log, and the plan adds a line to <code>operations.md</code> on where to look.</li>
+</ul>
+
+<h2>7. Banner text: decided, option C</h2>
+<p><strong>Decision:</strong> each person chooses, default A (task title and what happened). The options below are kept for the record.</p>
+<div class="tablewrap">
+<table>
+  <tr><th>Option</th><th>Banner shows</th><th>Trade-off</th></tr>
+  <tr><td><strong>A. Task title and what happened</strong> <span class="tag ok">Recommended</span></td><td><code>Filing: GSTR-3B for Mehta</code><br>Ravi marked this Done</td><td>Most useful: you know what it is before unlocking. Anyone who sees your lock screen sees client names.</td></tr>
+  <tr><td>B. Generic text only</td><td><code>Task Board</code><br>Ravi updated a task</td><td>Nothing sensitive on the lock screen, but you must open the app to learn which task.</td></tr>
+  <tr><td>C. Each person chooses</td><td>Either, per person</td><td>One more setting, and one more thing to test. Default A.</td></tr>
+</table>
+</div>
+<p>The board runs on a private network for three people. Option C adds one switch to the notification settings, <em>Show task details on the lock screen</em>, on by default. When it is off, that person's pushes read "Task Board: a task changed".</p>
+
+<h2>8. Order of work, on branch <code>feat/web-push</code></h2>
+<ol>
+  <li>Creator rule in <code>store._notify</code> and its tests. It is small and stands alone.</li>
+  <li>Migration 6, the key, and <code>push.py</code> with tests against a fake sender.</li>
+  <li>API routes, schemas, and regenerated client types.</li>
+  <li>Client button, service worker handler, and client tests; rebuild the committed bundle.</li>
+  <li>Docs, the help page, and this plan's status line.</li>
+  <li>Full checks: ruff, pytest, client tests and build, and the generated-types diff CI runs.</li>
+</ol>
+<p>One PR with both changes, as asked. The PR description will list them under separate headings, so the creator fix can be read on its own.</p>
+
+</div>
+</body>
+</html>

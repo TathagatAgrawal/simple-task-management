@@ -23,6 +23,7 @@ export type Session = Schemas["Session"];
 export type PersonCreated = Schemas["PersonCreated"];
 export type TemporaryPassword = Schemas["TemporaryPassword"];
 export type UpdateInfo = Schemas["UpdateInfo"];
+export type PushInfo = Schemas["PushInfo"];
 export type NotificationKind = Schemas["NotificationKind"];
 
 export type TaskIn = Schemas["TaskIn"];
