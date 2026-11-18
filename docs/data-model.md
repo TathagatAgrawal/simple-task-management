@@ -8,7 +8,8 @@ The schema lives in `src/simple_task_management/schema.sql`. SQLite runs in WAL 
 users ──< task_assignees >── tasks ──< updates
   │                           │  └── prev_task_id ──▶ tasks (next-occurrence chain)
   ├──< sessions               └── created_by ──▶ users
-  └──< notifications >── tasks (task_id becomes NULL if the task is deleted)
+  ├──< notifications >── tasks (task_id becomes NULL if the task is deleted)
+  └──< notification_settings
 ```
 
 ### `users`
@@ -49,7 +50,11 @@ An event's `body` is the **predicate only**, for example `moved this to Doing`. 
 
 ### `notifications`
 
-An inbox row per person per change they should hear about. `user_id` is the recipient, `actor_id` who made the change, `body` the predicate (for example `moved this to Doing`, `commented: …`), shown after the actor's name. `task_title` keeps the task's name so the row still reads after the task is deleted (`task_id` is then `NULL`, from `ON DELETE SET NULL`). `read_at` is `NULL` while unread. `id` is `AUTOINCREMENT` on purpose: the page announces anything newer than the last id it saw, so an id must never be reused after a delete. Rows are private to their recipient, and a person can delete their own freely: the task's thread, not the inbox, is the permanent record.
+An inbox row per person per change they should hear about. `user_id` is the recipient, `actor_id` who made the change, `body` the predicate (for example `moved this to Doing`, `commented: …`), shown after the actor's name. `task_title` keeps the task's name so the row still reads after the task is deleted (`task_id` is then `NULL`, from `ON DELETE SET NULL`). `kind` says what happened (`assigned`, `changed`, `moved`, `comment`, `removed` or `deleted`; the list is `store.NOTIFICATION_KINDS`). `announce` is `0` for an "inbox only" notification: it's listed in the bell but never pops up or sends a desktop alert. `read_at` is `NULL` while unread. `id` is `AUTOINCREMENT` on purpose: the page announces anything newer than the last id it saw, so an id must never be reused after a delete. Rows are private to their recipient, and a person can delete their own freely: the task's thread, not the inbox, is the permanent record.
+
+### `notification_settings`
+
+What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Alert me" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
 
 ### `sessions`
 
@@ -63,7 +68,7 @@ These must hold after every change. Tests cover them, so keep it that way.
 2. **At most one next occurrence per task.** This is enforced by the unique index on `prev_task_id` and checked in `_spawn_next`.
 3. **There is always at least one active admin.** Admins can't remove themselves, and the last admin can't be demoted or removed.
 4. **Removing a person** deletes their sessions and removes them from **open** tasks only, with an event on each. Done tasks keep their historical assignees.
-5. **Every task change notifies the task's other assignees, in the same transaction, and never the person who made it** (`store._notify`). That covers creating a task, editing, moving, commenting, deleting, and changing assignees (added people hear "assigned you to this task", removed people "removed you", the rest who joined or left). Read notifications older than 30 days are deleted whenever a new one is written.
+5. **Every task change notifies the task's other assignees, in the same transaction, and never the person who made it** (`store._notify`), unless that recipient turned the kind off in their notification settings. That covers creating a task, editing, moving, commenting, deleting, and changing assignees (added people hear "assigned you to this task", removed people "removed you", the rest who joined or left). Read notifications older than 30 days are deleted whenever a new one is written.
 6. **All timestamps are stored as UTC ISO-8601 strings** (`db.now_iso()`) and converted to IST only for display.
 
 ## Recurring tasks

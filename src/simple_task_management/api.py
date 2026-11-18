@@ -417,10 +417,28 @@ def build_api(
         }
 
     @api.get("/notifications", tags=["notifications"])
-    def notifications(conn: Conn, user: User, after: int = 0, unread: bool = False) -> list[dict]:
-        """My notifications, newest first (at most 50). ``after`` is a notification id."""
-        found = store.notifications_for(conn, user["id"], after=after, unread_only=unread)
+    def notifications(
+        conn: Conn, user: User, after: int = 0, unread: bool = False, announce: bool = False
+    ) -> list[dict]:
+        """My notifications, newest first (at most 50). ``after`` is a notification id.
+
+        ``announce`` leaves out the "inbox only" ones (see the notification settings).
+        """
+        found = store.notifications_for(
+            conn, user["id"], after=after, unread_only=unread, announce_only=announce
+        )
         return [notification_json(n) for n in found]
+
+    @api.get("/me/notification-settings", tags=["notifications"])
+    def get_notification_settings(conn: Conn, user: User) -> dict:
+        """What I get notified about: ``{kind: "alert" | "inbox" | "off"}`` for every kind."""
+        return store.notification_settings(conn, user["id"])
+
+    @api.patch("/me/notification-settings", tags=["notifications"])
+    def patch_notification_settings(conn: Conn, user: User, body: dict[str, str]) -> dict:
+        """Change some of my settings, e.g. ``{"comment": "inbox", "moved": "off"}``."""
+        store.set_notification_settings(conn, user["id"], body)
+        return store.notification_settings(conn, user["id"])
 
     @api.get("/notifications/unread", tags=["notifications"])
     def notifications_unread(conn: Conn, user: User) -> dict:

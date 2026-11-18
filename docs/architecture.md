@@ -124,7 +124,8 @@ The on-screen keyboard is handled with `window.visualViewport`: `board.js` sets 
 
 - `GET /notifications/badge` is the bell, swapped in place (`#bell-badge`) every 20 seconds, on focus and after changes. It carries `data-newest` and `data-unread`, and `board.js` compares `data-newest` with the last id this browser announced. Anything newer is fetched from `GET /api/notifications?unread=true&after=N` and shown as a toast whenever the page is visible, plus an OS notification (through `sw.js`) when the person has turned desktop alerts on and the window isn't focused.
 - `GET /notifications` is the list fragment, rendered into the bell's popover (`#notif-list`) and the phone's Alerts tab (`#alerts-list`). Its buttons post to `/notifications/{id}/read`, `/unread`, `/dismiss`, `/read-all` and `/clear-read`, which return `204` with `HX-Trigger: notifications-changed`. `store.py` filters every one by the signed-in person's id.
-- The JSON mirror is under `/api/notifications`.
+- `GET /notifications/settings` is the settings form (opened from the user menu, the bell's "Settings" link, or the phone's Me tab). Each person picks, per kind of change, *Alert me*, *Inbox only* or *Off*. It saves on every click through `POST /me/notifications`, which answers with a short "Saved ✓". Only the "Alert me" ones are fetched for toasts and desktop alerts (`announce=true`); the bell and list show both "Alert me" and "Inbox only".
+- The JSON mirror is under `/api/notifications`, with the settings at `/api/me/notification-settings`.
 
 Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
 

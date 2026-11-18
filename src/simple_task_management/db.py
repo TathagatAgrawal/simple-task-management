@@ -24,6 +24,26 @@ MIGRATIONS: list[str] = [
 
     CREATE INDEX notifications_user ON notifications (user_id, id);
     """,
+    # 2 -> 3: per-person notification settings. Each notification gets a kind (what happened) and
+    # an announce flag (0 = "inbox only": listed in the bell but no pop-up or desktop alert).
+    # A person's mode per kind is stored only when it differs from the default ("alert").
+    """
+    ALTER TABLE notifications ADD COLUMN kind TEXT NOT NULL DEFAULT 'changed';
+    ALTER TABLE notifications ADD COLUMN announce INTEGER NOT NULL DEFAULT 1;
+    UPDATE notifications SET kind = 'assigned' WHERE body LIKE 'assigned you%';
+    UPDATE notifications SET kind = 'removed' WHERE body LIKE 'removed you%';
+    UPDATE notifications SET kind = 'comment' WHERE body LIKE 'commented:%';
+    UPDATE notifications SET kind = 'deleted' WHERE body = 'deleted this task';
+    UPDATE notifications SET kind = 'moved'
+        WHERE body = 'marked this Done' OR body LIKE 'moved this to%' OR body LIKE 'reopened this%';
+
+    CREATE TABLE notification_settings (
+        user_id INTEGER NOT NULL REFERENCES users (id),
+        kind    TEXT    NOT NULL,
+        mode    TEXT    NOT NULL CHECK (mode IN ('alert', 'inbox', 'off')),
+        PRIMARY KEY (user_id, kind)
+    ) WITHOUT ROWID;
+    """,
 ]
 
 
