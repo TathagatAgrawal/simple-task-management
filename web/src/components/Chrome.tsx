@@ -3,7 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 import type { Theme } from "../api/types";
 import {
   banner, cardActions, chooseTheme, deleteTask, dismissBanner, liveMessage, me, modal, moveTask, openTask,
-  people, search, setSearch, setTab, setWho, signOut, summary, tab, unread, who,
+  people, search, setSearch, setTab, setWho, signOut, summary, tab, unread, updateInfo, who,
 } from "../state";
 import { Avatar } from "./bits";
 import { Icon } from "./Icon";
@@ -35,7 +35,7 @@ function UserMenu() {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
-  const choose = (name: "notif-settings" | "password" | "people") => {
+  const choose = (name: "notif-settings" | "password" | "people" | "updates") => {
     if (ref.current) ref.current.open = false;
     modal.value = name;
   };
@@ -61,6 +61,11 @@ function UserMenu() {
         {user.is_admin && (
           <button type="button" class="menu-item" onClick={() => choose("people")}>
             Manage people
+          </button>
+        )}
+        {user.is_admin && (
+          <button type="button" class="menu-item" onClick={() => choose("updates")}>
+            Updates{updateInfo.value?.available ? " · new version" : ""}
           </button>
         )}
         <button type="button" class="menu-item sep" onClick={signOut}>
@@ -177,6 +182,11 @@ export function MeView() {
         {user.is_admin && (
           <button type="button" onClick={() => (modal.value = "people")}>
             Manage people <Icon name="chevron-right" size={16} />
+          </button>
+        )}
+        {user.is_admin && (
+          <button type="button" onClick={() => (modal.value = "updates")}>
+            Updates{updateInfo.value?.available ? " · new version" : ""} <Icon name="chevron-right" size={16} />
           </button>
         )}
         <a href="/help">

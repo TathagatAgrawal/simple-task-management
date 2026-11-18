@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import auth, backup, dates, db, events
+from . import auth, backup, dates, db, events, updates
 from .api import build_api
 from .config import Settings, load_settings
 
@@ -59,6 +59,7 @@ def create_app(
     templates = _templates()
     throttle = auth.LoginThrottle()
     hub = events.Hub()
+    checker = updates.Checker()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -66,18 +67,21 @@ def create_app(
         conn = db.connect(settings.db_path)
         db.migrate(conn)
         conn.close()
-        task = (
-            asyncio.create_task(backup.nightly_loop(settings)) if settings.backups_enabled else None
-        )
+        tasks = []
+        if settings.backups_enabled:
+            tasks.append(asyncio.create_task(backup.nightly_loop(settings)))
+        if settings.update_check_enabled:
+            tasks.append(asyncio.create_task(checker.loop(settings.update_check_hours, hub)))
         yield
         hub.close()
-        if task:
+        for task in tasks:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.hub = hub  # tests subscribe to it to watch what gets announced
+    app.state.checker = checker  # tests replace its answer instead of reaching for GitHub
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     def today() -> date:
@@ -96,7 +100,14 @@ def create_app(
 
     app.mount(
         "/api",
-        build_api(settings=settings, today=today, get_conn=get_conn, throttle=throttle, hub=hub),
+        build_api(
+            settings=settings,
+            today=today,
+            get_conn=get_conn,
+            throttle=throttle,
+            hub=hub,
+            checker=checker,
+        ),
     )
 
     def signed_in_user(request: Request, conn: sqlite3.Connection) -> sqlite3.Row | None:

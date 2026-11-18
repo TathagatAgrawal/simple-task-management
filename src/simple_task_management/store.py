@@ -424,6 +424,25 @@ def _names(conn: sqlite3.Connection, ids: list[int]) -> str:
     return ", ".join(by_id.get(i, "?") for i in ids)
 
 
+# ---------------------------------------------------------------- app settings
+
+
+def get_setting(conn: sqlite3.Connection, key: str, default: str = "") -> str:
+    """A small setting the app keeps for itself (for example "auto_update"), or ``default``."""
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Save a small app setting."""
+    with conn:
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
 # ---------------------------------------------------------------- notifications
 
 

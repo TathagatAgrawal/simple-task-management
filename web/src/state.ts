@@ -6,13 +6,13 @@ import { alertState, showOsAlerts, showToasts } from "./alerts";
 import { api, ApiError, setCsrf, setSuccessHandler } from "./api/client";
 import type {
   Board, Card, Me, Meta, Mode, Notification, Person, Settings, Status, Summary, Task, TaskIn,
-  TaskPatch, Theme,
+  TaskPatch, Theme, UpdateInfo,
 } from "./api/types";
 import { recall, remember } from "./util";
 
 export type Tab = "board" | "soon" | "alerts" | "me";
 export type Seg = Status;
-export type ModalName = "new-task" | "password" | "people" | "notif-settings";
+export type ModalName = "new-task" | "password" | "people" | "notif-settings" | "updates";
 
 const TABS: Tab[] = ["board", "soon", "alerts", "me"];
 const SEGS: Seg[] = ["todo", "doing", "done"];
@@ -36,6 +36,9 @@ export const summary = signal<Summary | null>(null);
 
 export const openTaskId = signal<number | null>(null);
 export const task = signal<Task | null>(null);
+
+/** Whether a newer version is waiting on GitHub (admins only; null for everyone else). */
+export const updateInfo = signal<UpdateInfo | null>(null);
 
 export const notifications = signal<Notification[]>([]);
 export const unread = signal(0);
@@ -206,6 +209,11 @@ export const refreshPeople = coalesced(async () => {
   people.value = await api.people();
 });
 
+export const refreshUpdate = coalesced(async () => {
+  if (!me.value?.is_admin) return;
+  updateInfo.value = await api.update();
+});
+
 export const refreshMeta = coalesced(async () => {
   meta.value = await api.meta();
 });
@@ -264,6 +272,7 @@ export async function refreshAll(): Promise<void> {
     refreshPeople(),
     refreshNotifications(),
     refreshMeta(),
+    refreshUpdate(),
   ]);
 }
 
@@ -475,6 +484,15 @@ export async function saveNotificationSetting(kind: string, mode: Mode): Promise
 }
 
 // ---- people (admin) ------------------------------------------------------------------------
+/** Look at GitHub right now (a few seconds). */
+export async function checkForUpdate(): Promise<void> {
+  updateInfo.value = await api.checkUpdate();
+}
+
+export async function chooseAutoUpdate(on: boolean): Promise<void> {
+  updateInfo.value = await api.setAutoUpdate(on);
+}
+
 export async function afterPeopleChange(): Promise<void> {
   await Promise.all([refreshPeople(), refreshBoard()]);
 }

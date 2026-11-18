@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import auth, dates, events, schemas, store
+from . import auth, dates, events, schemas, store, updates
 from .config import Settings
 from .recurrence import REPEAT_LABELS
 
@@ -89,6 +89,12 @@ class PersonIn(Body):
     username: str
 
 
+class UpdatePatch(Body):
+    """Turn automatic nightly updates on or off."""
+
+    auto_update: bool
+
+
 class PersonPatch(Body):
     """Change a person's admin flag."""
 
@@ -133,6 +139,7 @@ def build_api(
     get_conn: Callable[[], Iterator[sqlite3.Connection]],
     throttle: auth.LoginThrottle,
     hub: events.Hub,
+    checker: updates.Checker,
 ) -> FastAPI:
     """Build the JSON API app. ``create_app`` mounts it at ``/api`` and shares its helpers."""
     api = FastAPI(
@@ -557,6 +564,60 @@ def build_api(
         store.dismiss_notifications(conn, user["id"], None)
         changed("notifications")
         return Response(status_code=204)
+
+    # ------------------------------------------------------------ updates (admin)
+
+    def update_info(conn: sqlite3.Connection) -> dict:
+        """What the last look at GitHub found, plus the auto-update setting and last nightly run."""
+        now_day = today()
+        status = checker.status or updates.Status(supported=(checker.app_dir / ".git").exists())
+        last = updates.read_last_run(settings.data_dir)
+        last_run = None
+        if last:
+            try:
+                when = dates.stamp(str(last["ran_at"]), settings.tz, now_day)
+            except ValueError:
+                when = str(last["ran_at"])
+            last_run = {
+                "ran_at": str(last["ran_at"]),
+                "when": when,
+                "result": str(last["result"]),
+                "detail": str(last.get("detail", "")),
+            }
+        return {
+            "supported": status.supported,
+            "available": status.behind > 0,
+            "behind": status.behind,
+            "current": status.current,
+            "latest": status.latest,
+            "commits": status.commits,
+            "checked_at": status.checked_at,
+            "checked_when": (
+                dates.stamp(status.checked_at, settings.tz, now_day) if status.checked_at else None
+            ),
+            "error": status.error,
+            "auto_update": store.get_setting(conn, "auto_update", "off") == "on",
+            "last_run": last_run,
+        }
+
+    @api.get("/update", tags=["updates"], response_model=schemas.UpdateInfo)
+    def get_update(conn: Conn, admin: Admin) -> dict:
+        """Is a newer version waiting on GitHub? (Admins only.) Installing it is done on the PC."""
+        return update_info(conn)
+
+    @api.post("/update/check", tags=["updates"], response_model=schemas.UpdateInfo)
+    def check_update(conn: Conn, admin: Admin) -> dict:
+        """Look at GitHub right now (takes a few seconds). Admins only."""
+        checker.check_now()
+        changed("updates")
+        return update_info(conn)
+
+    @api.patch("/update", tags=["updates"], response_model=schemas.UpdateInfo)
+    def patch_update(conn: Conn, admin: Admin, body: UpdatePatch) -> dict:
+        """Turn automatic nightly updates on or off. Admins only; the PC's nightly task does the work."""
+        store.set_setting(conn, "auto_update", "on" if body.auto_update else "off")
+        changed("updates")
+        return update_info(conn)
 
     # ------------------------------------------------------------ people
 

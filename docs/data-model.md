@@ -56,6 +56,10 @@ An inbox row per person per change they should hear about. `user_id` is the reci
 
 What each person chose to hear about: `(user_id, kind, mode)`, where `mode` is `alert`, `inbox` or `off`. **A row exists only when the choice differs from the default**, so everyone without rows gets `alert` for every kind, which is how notifications behaved before settings existed. Choosing "Pop up and bell" again deletes the row. Settings are applied when a notification is written (`store._notify`): `off` writes nothing for that person, `inbox` writes it with `announce = 0`.
 
+### `app_settings`
+
+`(key, value)` for the few things the app keeps for itself. Today there is one: `auto_update` (`on` or `off`, absent means off), chosen by admins in the Updates window and read by `update.ps1` through `simple-task-management update-setting`. Access goes through `store.get_setting` and `store.set_setting`.
+
 ### `sessions`
 
 `token` (cookie value), `user_id`, `csrf_token`, `expires_at`. Expired rows are purged whenever someone signs in.
@@ -96,5 +100,7 @@ The logic is in `store.move_task` → `store._spawn_next` → `recurrence.next_d
 
 - Version 0 (an empty file): apply `schema.sql` and set the version to 1.
 - Later changes: **append** an SQL string to `db.MIGRATIONS`. Entry *N* (0-based) upgrades version *N+1* to *N+2*. Never edit `schema.sql` for an existing deployment, and never reorder or edit a migration that has shipped.
+
+**Migration 3 to 4 is a backfill, not a schema change.** Tasks that existed before notifications get one unread notification for each person on them: "assigned you to this task", dated when that person was added, with the task's creator as the actor. They are `announce = 0` (bell only), so old news never pops up or sends a desktop alert. It skips finished tasks, people who were removed, the creator when they assigned the task to themselves (the same "never about your own actions" rule as live notifications), and anyone who already has a notification about that task, so it is safe on a database that already had some (`tests/test_backfill.py`). Because it only runs once, per version number, people can read or clear these without them coming back.
 
 Migrations run at every startup (`lifespan`) and in every CLI command. **Each step runs in its own transaction together with its version bump**, so a step that fails leaves the database untouched and the update can simply be retried (`test_a_failed_migration_changes_nothing`). Because migrations only add to the schema, an older version of the app still runs on a newer database, which is what makes rolling the code back safe. `update.ps1` takes a backup before starting the new version and compares the data counts before and after. See the recipe in [development.md](development.md#add-a-column-to-tasks).

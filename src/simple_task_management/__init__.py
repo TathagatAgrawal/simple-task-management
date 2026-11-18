@@ -168,6 +168,13 @@ def cmd_seed_demo(args: argparse.Namespace, settings: Settings) -> None:
     print("Demo data created. Sign in as asha (admin), ravi or meera with password:", DEMO_PASSWORD)
 
 
+def cmd_update_setting(args: argparse.Namespace, settings: Settings) -> None:
+    """Print ``on`` or ``off``: whether admins chose to update automatically (read by update.ps1)."""
+    conn = _open_db(settings)
+    print("on" if store.get_setting(conn, "auto_update", "off") == "on" else "off")
+    conn.close()
+
+
 def main() -> None:
     """Parse the command line and run the chosen sub-command."""
     parser = argparse.ArgumentParser(prog="simple-task-management", description=__doc__)
@@ -191,6 +198,9 @@ def main() -> None:
     bk = sub.add_parser("backup", help="take a database backup now")
     bk.add_argument("--label", default="manual")
     bk.set_defaults(func=cmd_backup)
+
+    upd = sub.add_parser("update-setting", help="print on/off: update automatically at night?")
+    upd.set_defaults(func=cmd_update_setting)
 
     seed = sub.add_parser("seed-demo", help="fill an empty database with demo people and tasks")
     seed.set_defaults(func=cmd_seed_demo)

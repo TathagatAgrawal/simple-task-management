@@ -1,7 +1,7 @@
 // The only place that talks to the server: one typed function per API endpoint.
 import type {
   Board, Me, Meta, Mode, Notification, Person, PersonCreated, Session, Settings, Summary, Task,
-  TaskIn, TaskPatch, TaskPatched, TemporaryPassword, Theme, Unread,
+  TaskIn, TaskPatch, TaskPatched, TemporaryPassword, Theme, Unread, UpdateInfo,
 } from "./types";
 
 /** A failed request. ``message`` is already written for the person to read. */
@@ -89,6 +89,10 @@ export const api = {
   patchTask: (id: number, patch: TaskPatch) => request<TaskPatched>("PATCH", `/tasks/${id}`, patch),
   deleteTask: (id: number) => request<void>("DELETE", `/tasks/${id}`),
   addUpdate: (id: number, body: string) => request<Task>("POST", `/tasks/${id}/updates`, { body }),
+
+  update: () => request<UpdateInfo>("GET", "/update"),
+  checkUpdate: () => request<UpdateInfo>("POST", "/update/check"),
+  setAutoUpdate: (auto_update: boolean) => request<UpdateInfo>("PATCH", "/update", { auto_update }),
 
   people: () => request<Person[]>("GET", "/people"),
   addPerson: (name: string, username: string) =>

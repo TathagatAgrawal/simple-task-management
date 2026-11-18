@@ -129,6 +129,12 @@ The on-screen keyboard is handled with `window.visualViewport`: `gestures.ts` se
 
 Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time browser permission, requested from a button click.
 
+## Updates
+
+`updates.py` only *looks* for a newer version: `git fetch origin main` in the app folder, then the number of commits behind and their subjects, never touching the working files. A `Checker` keeps the last answer and a background loop (in the app's `lifespan`, like the nightly backup) repeats it every `UPDATE_CHECK_HOURS` and tells open pages through the `updates` event topic. Admins get it from `GET /api/update`, can look now with `POST /api/update/check`, and turn automatic nightly updates on or off with `PATCH /api/update` (stored in `app_settings`). The client shows it in the admin-only Updates window (`UpdatesDialog`).
+
+Installing is not done by the app. `deploy/windows/update.ps1` does it (by hand, or nightly with `-Auto` from the `TaskBoardUpdate` task), because it has to stop and restart the app and put the old version back if the new one fails. In `-Auto` mode the script reads the admins' choice through the command `simple-task-management update-setting` and leaves `data\update-last-run.json`, which `updates.read_last_run` shows in the same window.
+
 ## The JSON API
 
 `/api` is the only way the client reads and changes data, and it is open to any other client too (a phone app, a script). It calls the same `store.*` functions every rule lives in, so rules and history events exist in one place. Every response has a model in `schemas.py`, so the schema published at `/api/openapi.json` describes each one exactly, and the client's TypeScript types are generated from it (`npm run types` in `web/`).
@@ -141,6 +147,7 @@ Desktop alerts need HTTPS (already provided by `tailscale serve`) and a one-time
 | Tasks | `POST /api/tasks`, `GET`, `PATCH` and `DELETE /api/tasks/{id}`, `POST /api/tasks/{id}/updates` |
 | People | `GET /api/people`, and for admins `POST /api/people`, `PATCH /api/people/{id}`, `POST /api/people/{id}/reset-password`, `DELETE /api/people/{id}` |
 | Notifications | `GET /api/notifications?after=&unread=&announce=`, `GET /api/notifications/unread`, `POST .../{id}/read` and `/unread`, `POST .../read-all`, `DELETE .../{id}`, `DELETE /api/notifications` (clear read), `GET` and `PATCH /api/me/notification-settings` |
+| Updates | Admins only: `GET /api/update`, `POST /api/update/check`, `PATCH /api/update` (`auto_update`) |
 | Live | `GET /api/events` (Server-Sent Events) |
 
 `who` is `me`, `all`, `none` (unassigned) or a user id. Unknown values fall back to `me`.

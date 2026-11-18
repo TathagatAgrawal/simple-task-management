@@ -108,6 +108,8 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\update.ps1
 
 It prints how many tasks, updates and people there are, takes a backup, installs the new version, starts it, and prints the counts again so you can see nothing was lost. Then everyone refreshes the page once (Ctrl+F5). If the new version won't start, it puts the old one back by itself. A folder that was not installed with git needs `-ZipPath` (the script explains how). Details: [docs/operations.md](docs/operations.md#updating-the-app).
 
+To have the PC update itself at night, run `update.ps1 -EnableAutoUpdate` once, then an admin turns on **Update automatically at night** in the app (user menu, **Updates**). That window also shows when a newer version is waiting, even if you update by hand. Without both, nothing installs by itself.
+
 ### Restoring a backup
 
 ```powershell

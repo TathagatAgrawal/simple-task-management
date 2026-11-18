@@ -13,6 +13,14 @@ if ($task) {
     $ok = $false
 }
 
+$updateTask = Get-ScheduledTask -TaskName $UpdateTaskName -ErrorAction SilentlyContinue
+if ($updateTask) {
+    $info = Get-ScheduledTaskInfo -TaskName $UpdateTaskName
+    Write-Host "Nightly update task '$UpdateTaskName': $($updateTask.State), next run $($info.NextRunTime)"
+} else {
+    Write-Host "Nightly updates: not set up (optional). To set them up: deploy\windows\update.ps1 -EnableAutoUpdate"
+}
+
 if (Test-AppHealthy) {
     Write-Host "App health check ($HealthUrl): OK" -ForegroundColor Green
 } else {
