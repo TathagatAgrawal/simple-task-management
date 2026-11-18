@@ -32,7 +32,7 @@ All of them except `uninstall.ps1` dot-source `common.ps1`, which sets `$AppDir`
 | `status.ps1` | No | Shows the scheduled task state, `/healthz`, `tailscale serve status` and the latest backup |
 | `restart.ps1 [-Stop]` | Yes | Stops the task (and anything still listening on the port), then starts it again |
 | `uninstall.ps1` | Yes | Asks for confirmation, removes the scheduled task (before stopping the app, so it can't restart), stops the app, offers a Desktop copy of the database, turns off `tailscale serve`, deletes the app folder, then optionally deletes backups, removes uv/Python and restores sleep. **Self-contained**: it doesn't load `common.ps1`, so it works on a half-deleted install when copied anywhere (`-AppDir` if not `C:\TaskBoard`) |
-| `update.ps1` | Yes | Takes a backup, stops the app, runs `git pull --ff-only`, `uv sync`, and starts it again. Migrations run on startup |
+| `update.ps1` | Yes | Counts the data, takes a backup, gets the latest version (git, or `-ZipPath` for a folder without git), installs dependencies, starts the app, checks the page loads, and counts the data again. Puts the previous version back if the new one won't start. `-CheckOnly` just reports what's new; `-Force` replaces the app's own files if local edits or a different history stop the update. See "Updating the app" below |
 
 These scripts can't run on macOS. CI parses them and runs PSScriptAnalyzer on `windows-latest`, but they have **not** been executed end-to-end in CI. Test changes on a real Windows machine.
 
@@ -44,6 +44,18 @@ These scripts can't run on macOS. CI parses them and runs PSScriptAnalyzer on `w
 - **Uvicorn** trusts `X-Forwarded-*` headers only from `127.0.0.1`, which is where Tailscale Serve proxies from.
 - **Windows 10 is out of support.** The PC no longer gets security patches unless the firm pays for business ESU. Recommend using it only as the server. Moving the app to another machine means copying the folder and running `install.ps1`.
 
+## Updating the app
+
+Run `update.ps1` in an Administrator PowerShell on the PC (steps in the root README). **It never deletes or replaces the data**: `data\`, `backups\`, `logs\` and `.env` are outside what an update touches, and the app is not reinstalled.
+
+1. **Before changing anything** it reads the database and prints how many tasks, updates and people there are, then takes a backup labelled `pre-update`. If the backup fails, the update is cancelled.
+2. **It gets the new code** (`git fetch` and fast-forward, or the files from a ZIP), installs the Python dependencies with `uv sync --no-dev`, and starts the app. No Node or build tools are needed on the PC: the web client is a built file committed to the repository.
+3. **The database upgrades itself on start** (`db.migrate`): each step runs in one transaction, so a step either applies completely or leaves the database exactly as it was. Old data is kept as it is; new tables start empty (for example, there are no notifications until someone changes a task, and everyone's notification settings start at the default).
+4. **It checks the result**: the app answers `/healthz`, the page and the client file load, and the counts match what it printed before. If the new version doesn't start, it puts the previous code back and starts that. The previous version runs fine on an upgraded database, so a rollback never needs the data restored.
+5. Everyone refreshes the page once (Ctrl+F5); an already-open tab keeps running the old page until it does.
+
+If the counts ever differ, or something looks wrong later, restore the `pre-update` backup (see Recovery). The update's last line tells you the exact commit to return to with `git reset --hard`.
+
 ## Recovery
 
 | Situation | Fix |
@@ -51,7 +63,8 @@ These scripts can't run on macOS. CI parses them and runs PSScriptAnalyzer on `w
 | App down | `status.ps1`, then `restart.ps1`, then read `logs\app.log` |
 | PC rebooted / power cut | Nothing to do: the scheduled task and Tailscale (unattended) start at boot. Turn on "AC power recovery" in the BIOS if it's available |
 | Only admin forgot their password | On the host: `uv run simple-task-management set-password <username>` |
-| Bad data / need to roll back | `restart.ps1 -Stop`, copy a backup over `data\tasks.db`, `restart.ps1` |
+| Bad data / need to roll back | `restart.ps1 -Stop`, copy a backup over `data\tasks.db`, `restart.ps1`. A `pre-update` backup restored into a newer version upgrades itself again on start |
+| An update failed halfway | `update.ps1` already put the previous version back and says so. If not: `git reset --hard <the commit it printed>`, `uv sync --no-dev`, `restart.ps1`. The data is unchanged unless a migration fully succeeded, and the older version works on it either way |
 | Remove the app completely | `uninstall.ps1`. If the folder was deleted while the app was running, copy `uninstall.ps1` onto the PC and run it from anywhere |
 | Move to a new PC | Copy `C:\TaskBoard` (including `data\`), run `install.ps1` on the new PC, and rename the machine in Tailscale so the URL stays the same |
 

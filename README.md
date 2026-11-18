@@ -93,8 +93,20 @@ Full background is in section 10 of the design plan. In short, on the Windows 10
 |---|---|
 | `deploy\windows\status.ps1` | Check the app, Tailscale and the latest backup |
 | `deploy\windows\restart.ps1` | Restart the app (`-Stop` to just stop it) |
-| `deploy\windows\update.ps1` | Back up, pull the new version, reinstall, restart |
+| `deploy\windows\update.ps1` | Back up, get the new version, install it, restart, and check the data is all still there (undoes itself if the new version won't start). `-CheckOnly` shows what's new |
 | `deploy\windows\uninstall.ps1` | Remove the app completely (see below) |
+
+### Updating to a newer version
+
+You never need to uninstall or reinstall. In an Administrator PowerShell on the PC:
+
+```powershell
+cd C:\TaskBoard
+powershell -ExecutionPolicy Bypass -File deploy\windows\update.ps1 -CheckOnly   # optional: what's new?
+powershell -ExecutionPolicy Bypass -File deploy\windows\update.ps1
+```
+
+It prints how many tasks, updates and people there are, takes a backup, installs the new version, starts it, and prints the counts again so you can see nothing was lost. Then everyone refreshes the page once (Ctrl+F5). If the new version won't start, it puts the old one back by itself. A folder that was not installed with git needs `-ZipPath` (the script explains how). Details: [docs/operations.md](docs/operations.md#updating-the-app).
 
 ### Restoring a backup
 

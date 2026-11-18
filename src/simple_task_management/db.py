@@ -75,8 +75,14 @@ def migrate(conn: sqlite3.Connection) -> int:
         version = 1
         conn.execute(f"PRAGMA user_version = {version}")
     for step in MIGRATIONS[version - 1 :]:
-        conn.executescript(step)
         version += 1
-        conn.execute(f"PRAGMA user_version = {version}")
+        # One transaction per step, version bump included: a step either applies completely or
+        # leaves the database exactly as it was, so a failed update can simply be retried.
+        try:
+            conn.executescript(f"BEGIN;\n{step}\nPRAGMA user_version = {version};\nCOMMIT;")
+        except sqlite3.Error:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
     conn.commit()
     return version
