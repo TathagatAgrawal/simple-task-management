@@ -34,7 +34,7 @@ def test_manifest_makes_the_app_installable(app, users):
 
 def test_every_manifest_icon_exists_at_its_stated_size():
     """Each icon in the manifest is a real PNG of the size it claims."""
-    manifest = json.loads((STATIC / "manifest.webmanifest").read_text())
+    manifest = json.loads((STATIC / "manifest.webmanifest").read_text(encoding="utf-8"))
     for icon in manifest["icons"]:
         width, height = png_size(STATIC / icon["src"].removeprefix("/static/"))
         assert f"{width}x{height}" == icon["sizes"]
@@ -54,7 +54,7 @@ def test_the_built_client_is_shipped_with_the_package():
     """The committed bundle exists, so the production PC never needs Node."""
     bundle = STATIC / "dist" / "app.js"
     assert bundle.is_file() and bundle.stat().st_size > 10_000
-    assert "/api/events" in bundle.read_text()
+    assert "/api/events" in bundle.read_text(encoding="utf-8")
 
 
 def test_service_worker_is_served_from_the_root(app, users):

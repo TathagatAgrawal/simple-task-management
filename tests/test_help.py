@@ -38,5 +38,5 @@ def test_every_screenshot_in_the_manual_exists(asha):
 
 def test_help_is_linked_from_the_built_client():
     """The built client links to the manual from the top bar, the Me tab and the sign-in screen."""
-    bundle = (STATIC / "dist" / "app.js").read_text()
+    bundle = (STATIC / "dist" / "app.js").read_text(encoding="utf-8")
     assert bundle.count("/help") >= 3
