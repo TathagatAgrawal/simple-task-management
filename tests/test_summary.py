@@ -38,17 +38,17 @@ def test_summary_buckets(conn, users):
 def test_summary_endpoint_uses_ist_today(asha, users):
     """The endpoint's "today" is the fixed IST date from the test clock."""
     new_task(asha, title="Due today", due="2026-11-14", assignee_ids=[users["asha"]])
-    html = asha.get("/summary").text
-    assert "Due today" in html
-    assert "Nothing overdue" in html
+    data = asha.get("/api/summary").json()
+    assert [t["title"] for t in data["today"]] == ["Due today"]
+    assert data["today"][0]["due_label"] == "Today"
+    assert data["overdue"] == []
 
 
-def test_long_groups_collapse_after_three(asha, users):
-    """Groups with more than three tasks show the rest behind "Show N more"."""
+def test_long_groups_keep_every_task_and_label_them(asha, users):
+    """The API returns every task in a group; the client decides how many to show."""
     for i in range(5):
         new_task(asha, title=f"Late {i}", due="2026-11-10", assignee_ids=[users["asha"]])
-    html = asha.get("/summary").text
-    assert html.count('class="sum-item"') == 3
-    assert html.count('class="sum-item extra"') == 2
-    assert "Show 2 more" in html
-    assert "4 days late" in html
+    late = asha.get("/api/summary").json()["overdue"]
+    assert len(late) == 5
+    assert {t["due_label"] for t in late} == {"4 days late"}
+    assert {t["due_tone"] for t in late} == {"red"}

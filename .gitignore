@@ -22,3 +22,9 @@ logs/
 
 # Throwaway demo data for local testing
 demo-*/
+
+# Web client (web/): dependencies and scratch files are ignored; the built bundle in
+# static/dist is committed so the production PC never needs Node.
+node_modules/
+web/openapi.json
+!src/simple_task_management/static/dist/

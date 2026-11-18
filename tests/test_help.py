@@ -21,7 +21,7 @@ def test_help_is_readable_before_signing_in(app, users):
 
 def test_help_follows_the_signed_in_persons_theme(asha):
     """Signed in, the manual offers a way back and uses the person's theme."""
-    asha.post("/me/theme", data={"theme": "dark"})
+    asha.patch("/api/me", json={"theme": "dark"})
     html = asha.get("/help").text
     assert "Back to the board" in html
     assert '<html lang="en" data-theme="dark">' in html
@@ -36,8 +36,7 @@ def test_every_screenshot_in_the_manual_exists(asha):
     assert missing == []
 
 
-def test_help_is_linked_from_the_app_and_login(app, asha, users):
-    """The top bar and the sign-in screen both link to the manual."""
-    assert 'href="/help"' in asha.get("/").text
-    with TestClient(app) as client:
-        assert 'href="/help"' in client.get("/").text
+def test_help_is_linked_from_the_built_client():
+    """The built client links to the manual from the top bar, the Me tab and the sign-in screen."""
+    bundle = (STATIC / "dist" / "app.js").read_text()
+    assert bundle.count("/help") >= 3

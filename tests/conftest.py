@@ -1,6 +1,5 @@
 """Shared fixtures: an isolated app per test, a fixed clock, and signed-in clients."""
 
-import re
 from datetime import UTC, date, datetime
 
 import pytest
@@ -57,19 +56,15 @@ def app(settings, conn):
 
 
 def sign_in(app, username: str, password: str = PASSWORD) -> TestClient:
-    """Return a client signed in as ``username`` that sends the CSRF header like htmx does."""
+    """Return a client signed in as ``username`` the way the web page does it.
+
+    The session cookie comes from ``POST /api/session``, and every request carries the CSRF header.
+    """
     client = TestClient(app)
     client.__enter__()
-    response = client.post(
-        "/login",
-        data={"username": username, "password": password},
-        headers={"HX-Request": "true"},
-    )
-    assert response.headers.get("HX-Redirect") == "/", response.text
-    page = client.get("/").text
-    match = re.search(r'"X-CSRF-Token": "([^"]*)"', page)
-    assert match
-    client.headers.update({"X-CSRF-Token": match.group(1), "HX-Request": "true"})
+    response = client.post("/api/session", json={"username": username, "password": password})
+    assert response.status_code == 200, response.text
+    client.headers["X-CSRF-Token"] = response.json()["user"]["csrf_token"]
     return client
 
 
@@ -89,8 +84,26 @@ def ravi(app, users):
     client.__exit__(None, None, None)
 
 
-def new_task(client: TestClient, **fields) -> None:
-    """Create a task through the HTTP API, asserting success."""
+def new_task(client: TestClient, **fields) -> int:
+    """Create a task through the JSON API, asserting success; returns its id."""
     data = {"title": "A task", "due": TODAY.isoformat(), "repeat": "none"} | fields
-    response = client.post("/tasks", data=data)
-    assert response.status_code == 204, response.text
+    response = client.post("/api/tasks", json=data)
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def move(client: TestClient, task_id: int, status: str):
+    """Move a task to another column through the JSON API and return the response."""
+    return client.patch(f"/api/tasks/{task_id}", json={"status": status})
+
+
+def board(client: TestClient, who: str = "all", **params):
+    """The board as JSON (``{"todo": [...], ...}``)."""
+    response = client.get("/api/board", params={"who": who, **params})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def board_titles(client: TestClient, who: str = "all", **params) -> set[str]:
+    """Titles of every card on the board."""
+    return {card["title"] for cards in board(client, who, **params).values() for card in cards}

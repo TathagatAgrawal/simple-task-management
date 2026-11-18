@@ -6,17 +6,17 @@ The app has three users and no IT support, and it should keep working for years 
 
 ### 1. Boring, few dependencies
 
-The runtime dependencies are FastAPI, Uvicorn, Jinja2, python-multipart (for form parsing) and tzdata (Windows has no built-in timezone database). That's all. htmx is a single vendored file in `static/`, not fetched from a CDN, so the app works even if a CDN is down or blocked.
+The runtime dependencies are FastAPI, Uvicorn, Jinja2 and tzdata (Windows has no built-in timezone database). That's all. The web client is one built file, `static/dist/app.js` (Preact, about 21 KB gzipped), committed to the repository and served by the app itself, not fetched from a CDN, so the app works even if a CDN is down or blocked.
 
-There is no ORM, no JS framework, no CSS framework, no bundler, no Node, no Docker and no separate database server. Each was considered and rejected because it adds something to install, update or debug on a Windows PC nobody maintains, without giving the firm anything they'd notice.
+There is no ORM, no CSS framework, no Docker and no separate database server. The client is written in TypeScript with Preact and built with Vite, so developers need Node, **but the firm's PC never does**: the built bundle is committed, and CI fails if it doesn't match the source. Each of these was weighed against the same question: does it add something to install, update or debug on a Windows PC nobody maintains? Build tools are acceptable because they stay on developers' machines; anything that runs on the PC isn't, unless the firm would feel its absence.
 
 **Rule of thumb:** a new dependency needs a reason the firm would feel. "It would be nicer to write" isn't enough.
 
-### 2. One page, server-rendered
+### 2. One page, one JSON API
 
-The browser loads `/` once. After that, htmx asks the server for small HTML fragments and swaps them into regions of the page. The server owns all state and all rendering, so there is no client-side model to keep in sync. If something looks wrong, a refresh shows the truth.
+The browser loads `/` once, and a small TypeScript client does the rest through the JSON API under `/api`. The server owns all the rules, the history and the wording (dates are labelled in IST on the server and sent ready-made); the client only shows what the API returns and sends what people change, so there is no second copy of the business logic to keep in sync. If something looks wrong, a refresh shows the truth.
 
-JavaScript is limited to what HTML can't do: drag-and-drop, opening and closing the task drawer and dialogs, remembering the filter, and switching the theme without a reload. It all lives in `static/board.js` (~220 lines). If you find yourself writing JS to render data, render it on the server instead.
+The API is the only door: any other client (a phone app, a script) gets exactly what the web page gets, and its types are generated from the server's schema so the two cannot drift apart unnoticed. Pages stay current through one Server-Sent Events connection that says "something changed" (no polling load, no WebSockets), with a slow refresh as a safety net.
 
 ### 3. Plain SQL in one place
 
@@ -59,7 +59,7 @@ Each of these is a reasonable feature, but none is needed yet. Don't add them wi
 | Manual card ordering within a column | Columns sort by due date, which is the order that matters for deadlines |
 | File attachments | Files live in the firm's existing folders and email |
 | Email, or Web Push when the browser is closed | In-app notifications and desktop alerts cover people who have the board open. Web Push would add a dependency and keys; see [design/notifications.html](design/notifications.html) |
-| WebSockets / live updates | Polling every 60s plus refresh-on-focus is enough for three people |
+| WebSockets | Server-Sent Events already push "something changed" to every open page; two-way sockets would add complexity nobody needs |
 | Public internet access (Tailscale Funnel) | Task titles contain client names, so the app stays tailnet-only |
 | Mobile layout | Planned next; see the design plan's "Later versions" |
 

@@ -294,13 +294,16 @@ def test_api_notifications(app, users):
     asha_client = sign_in(app, "asha")
     ravi_client = sign_in(app, "ravi")
     asha_client.post(
-        "/tasks", data={"title": "Filing", "due": "2026-11-20", "assignee_ids": [users["ravi"]]}
+        "/api/tasks",
+        json={"title": "Filing", "due": "2026-11-20", "assignee_ids": [users["ravi"]]},
     )
     unread = ravi_client.get("/api/notifications/unread").json()
     assert unread["unread"] == 1
     items = ravi_client.get("/api/notifications?unread=true").json()
     assert items[0]["text"] == "Asha Iyer assigned you a new task"
     assert items[0]["detail"] == "Filing" and items[0]["read"] is False
+    assert items[0]["actor"] == "Asha Iyer" and items[0]["kind"] == "assigned"
+    assert items[0]["due_label"] == "Fri 20 Nov" and items[0]["announce"] is True
     assert ravi_client.get(f"/api/notifications?after={unread['newest']}").json() == []
     nid = items[0]["id"]
     assert ravi_client.post(f"/api/notifications/{nid}/read").status_code == 204

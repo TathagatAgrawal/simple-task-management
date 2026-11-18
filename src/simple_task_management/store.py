@@ -532,7 +532,8 @@ def notifications_for(
     ``announce_only`` leaves out the "inbox only" ones, which never pop up or send desktop alerts.
     """
     return conn.execute(
-        f"""SELECT n.id, n.task_id, n.body, n.created_at, n.read_at, a.name AS actor_name,
+        f"""SELECT n.id, n.task_id, n.body, n.kind, n.announce, n.created_at, n.read_at,
+                   a.name AS actor_name,
                    COALESCE(t.title, n.task_title) AS title, t.due_date, t.status
             FROM notifications n
             LEFT JOIN tasks t ON t.id = n.task_id
