@@ -4,6 +4,7 @@
      hx-get="/tasks/{{ task.id }}" hx-swap="outerHTML" hx-target="this"
      hx-trigger="tasks-changed from:body, every 60s [tbPanelIdle()]">
   <header class="panel-head">
+    <button type="button" class="btn icon back-btn" onclick="tbClosePanel()" aria-label="Back to the board">{{ icon("chevron-left", 22) }}</button>
     <textarea class="title-input" name="title" rows="1" maxlength="200" required aria-label="Title"
               hx-post="/tasks/{{ task.id }}" hx-trigger="change" hx-swap="none"
               onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.blur(); }">{{ task.title }}</textarea>

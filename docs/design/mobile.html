@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks – mobile mockups</title>
+<style>
+/* ---------- tokens (same palette as the desktop app.css) ---------- */
+:root, .phone[data-theme="light"] {
+  color-scheme: light;
+  --bg:#f6f5f1; --surface:#fff; --surface-2:#eeece6; --text:#1d1d1b; --muted:#66645e; --border:#dedbd2;
+  --accent:#2f5d50; --accent-text:#fff; --accent-soft:#e1ede8; --red:#b4362b; --red-soft:#f8e4e1;
+  --amber:#8a5900; --amber-soft:#fbefd6; --blue:#2d5b9a; --blue-soft:#e2ebf7; --chip:#e9e7e1;
+  --shadow:0 8px 24px rgba(0,0,0,.12); --scrim:rgba(0,0,0,.32); --sep:rgba(60,60,50,.14);
+}
+html[data-theme="dark"], .phone[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:#141412; --surface:#1e1e1b; --surface-2:#282824; --text:#ecebe6; --muted:#a3a199; --border:#3a3934;
+  --accent:#7fb8a4; --accent-text:#10201a; --accent-soft:#22352e; --red:#ef8f84; --red-soft:#3d2320;
+  --amber:#e6b75f; --amber-soft:#3a2f18; --blue:#93b6e8; --blue-soft:#1f2b3d; --chip:#2f2e2a;
+  --shadow:0 8px 24px rgba(0,0,0,.5); --scrim:rgba(0,0,0,.55); --sep:rgba(255,255,240,.12);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }
+button, input, textarea { font:inherit; color:inherit; }
+a { color:var(--accent); }
+h1,h2,h3 { margin:0; }
+
+/* ---------- document layout ---------- */
+.doc-top { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:18px; padding:10px 28px; background:var(--surface); border-bottom:1px solid var(--border); }
+.doc-top b { font-size:15px; }
+.doc-top nav { display:flex; gap:14px; flex:1; overflow-x:auto; font-size:13px; }
+.doc-top nav a { text-decoration:none; color:var(--muted); white-space:nowrap; }
+.doc-top nav a:hover { color:var(--accent); }
+.doc-btn { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:13px; }
+.doc-btn:hover { border-color:var(--muted); }
+.wrap { max-width:1360px; margin:0 auto; padding:0 28px 80px; }
+.lede { padding:44px 0 8px; max-width:820px; }
+.lede h1 { font-size:34px; letter-spacing:-.02em; }
+.lede p { color:var(--muted); font-size:16px; margin:10px 0 0; }
+.cards4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; margin:28px 0 8px; }
+.cards4 > div { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.cards4 h3 { font-size:14px; margin-bottom:4px; }
+.cards4 p { margin:0; color:var(--muted); font-size:13.5px; }
+.sec { padding-top:56px; }
+.sec > h2 { font-size:22px; letter-spacing:-.01em; }
+.sec > .sub { color:var(--muted); margin:4px 0 24px; max-width:760px; }
+.hero { display:grid; grid-template-columns:auto 1fr; gap:48px; align-items:start; }
+.hero-side { max-width:520px; }
+.hero-side h3 { font-size:16px; margin-bottom:8px; }
+.try { list-style:none; margin:0 0 18px; padding:0; display:grid; gap:8px; }
+.try li { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:14px; }
+.try li b { color:var(--accent); }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(440px,1fr)); gap:44px 28px; justify-items:center; }
+figure { margin:0; display:grid; gap:16px; justify-items:center; }
+figcaption { width:412px; max-width:100%; }
+figcaption .num { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--accent); color:var(--accent-text); font-size:12px; font-weight:700; margin-right:8px; }
+figcaption h3 { font-size:16px; display:flex; align-items:center; }
+figcaption p { margin:6px 0 0; color:var(--muted); font-size:13.5px; }
+figcaption ul { margin:8px 0 0; padding-left:18px; font-size:13.5px; }
+figcaption li { margin:2px 0; }
+.desk { margin-top:8px; font-size:12.5px; color:var(--muted); border-left:3px solid var(--border); padding-left:10px; }
+table { border-collapse:collapse; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; font-size:14px; }
+th, td { text-align:left; vertical-align:top; padding:10px 14px; border-bottom:1px solid var(--border); }
+th { background:var(--surface-2); font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+tr:last-child td { border-bottom:0; }
+.two { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px; }
+.note { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+.note h3 { font-size:15px; margin-bottom:6px; }
+.note ul { margin:0; padding-left:18px; font-size:14px; color:var(--muted); }
+.note li { margin:4px 0; }
+@media (max-width:960px) { .hero { grid-template-columns:1fr; justify-items:center; } .grid { grid-template-columns:1fr; } }
+
+/* ---------- the phone ---------- */
+.phone { position:relative; width:412px; height:866px; flex:none; border-radius:62px; border:11px solid #0c0c0b; background:var(--bg); color:var(--text);
+  overflow:hidden; box-shadow:0 0 0 2px #3b3b38, 0 24px 60px rgba(0,0,0,.28); user-select:none; -webkit-user-select:none; isolation:isolate;
+  font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif; transform:translateZ(0); }
+.phone * { -webkit-tap-highlight-color:transparent; }
+.phone :where(button) { cursor:pointer; background:none; border:0; padding:0; text-align:left; }
+.phone input, .phone textarea { user-select:text; -webkit-user-select:text; }
+.island { position:absolute; top:11px; left:50%; width:118px; height:34px; margin-left:-59px; background:#000; border-radius:20px; z-index:300; pointer-events:none; }
+.statusbar { position:absolute; inset:0 0 auto 0; height:54px; z-index:250; display:flex; justify-content:space-between; align-items:center; padding:6px 34px 0 40px; font-weight:600; font-size:16px; pointer-events:none; }
+.statusbar .sb-r { display:flex; gap:6px; align-items:center; }
+.home { position:absolute; bottom:8px; left:50%; width:136px; height:5px; margin-left:-68px; border-radius:3px; background:var(--text); opacity:.9; z-index:300; pointer-events:none; }
+.screen { position:absolute; inset:0; overflow:hidden; }
+.stack { position:absolute; inset:0; transition:transform .35s cubic-bezier(.2,.8,.2,1), border-radius .35s; transform-origin:50% 0; background:var(--bg); }
+.stack.recede { transform:scale(.93) translateY(12px); border-radius:28px; overflow:hidden; filter:brightness(.8); }
+.page { position:absolute; inset:0; display:flex; flex-direction:column; background:var(--bg); }
+.page.pushed { z-index:5; box-shadow:-8px 0 24px rgba(0,0,0,.12); }
+.anim-push { animation:push .38s cubic-bezier(.2,.8,.2,1); }
+.anim-pop { animation:pop .32s cubic-bezier(.2,.8,.2,1); }
+@keyframes push { from { transform:translateX(100%); } }
+@keyframes pop { from { transform:translateX(-30%); opacity:.6; } }
+@keyframes up { from { transform:translateY(100%); } }
+@keyframes fade { from { opacity:0; } }
+@keyframes pm { from { opacity:0; transform:scale(.7); } }
+.phone.kb .page { padding-bottom:300px; }
+.kb-wrap { position:absolute; left:0; right:0; bottom:0; height:300px; z-index:240; transform:translateY(100%); transition:transform .3s cubic-bezier(.2,.8,.2,1); background:#d3d5db; padding:8px 4px 0; }
+.phone[data-theme="dark"] .kb-wrap { background:#2a2a2d; }
+.phone.kb .kb-wrap { transform:none; }
+.kb-row { display:flex; justify-content:center; gap:6px; margin-bottom:11px; }
+.kb-k { min-width:34px; height:42px; border-radius:6px; background:#fff; display:grid; place-items:center; font-size:22px; color:#111; box-shadow:0 1px 0 rgba(0,0,0,.3); }
+.phone[data-theme="dark"] .kb-k { background:#5a5a5e; color:#fff; }
+.kb-k.mod { background:#adb0b8; font-size:15px; min-width:46px; }
+.phone[data-theme="dark"] .kb-k.mod { background:#3b3b3f; }
+.kb-k.sp { flex:1; font-size:15px; }
+.kb-k.ret { min-width:86px; background:var(--accent); color:var(--accent-text); font-size:15px; }
+
+/* status / nav */
+.nav { flex:none; padding-top:54px; background:var(--bg); position:relative; z-index:3; transition:background .2s; }
+.nav::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--sep); opacity:0; transition:opacity .2s; }
+.page.collapsed .nav::after { opacity:1; }
+.nav-bar { height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px 0 14px; gap:8px; position:relative; }
+.nav-title { position:absolute; left:50%; transform:translateX(-50%); font-weight:600; font-size:17px; opacity:0; transition:opacity .15s; pointer-events:none; white-space:nowrap; }
+.page.collapsed .nav-title, .nav-title.always { opacity:1; }
+.nav-r { display:flex; align-items:center; gap:6px; margin-left:auto; }
+.nb { color:var(--accent); font-size:17px; display:inline-flex; align-items:center; gap:2px; height:36px; }
+.nb.bold { font-weight:600; }
+.nb.off { color:var(--muted); opacity:.55; pointer-events:none; }
+.nb.circle { width:36px; justify-content:center; background:var(--accent); color:var(--accent-text); border-radius:50%; width:32px; height:32px; }
+.pill { display:inline-flex; align-items:center; gap:5px; background:var(--surface); border:1px solid var(--border) !important; border-radius:16px; padding:0 11px; height:32px; font-size:14px; font-weight:500; }
+.pill svg:first-child { color:var(--muted); }
+.large { font-size:34px; font-weight:700; letter-spacing:-.02em; padding:2px 18px 10px; }
+.scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:0 16px 24px; scrollbar-width:none; overscroll-behavior:contain; }
+.scroll::-webkit-scrollbar { display:none; }
+.scroll > .large { margin:0 -16px; }
+
+/* tab bar */
+.tabbar { flex:none; display:flex; padding:8px 8px 30px; background:var(--surface); border-top:1px solid var(--sep); z-index:3; }
+.phone.kb .tabbar { display:none; }
+.tab { flex:1; display:grid; justify-items:center; gap:2px; color:var(--muted); font-size:10.5px; font-weight:500; text-align:center !important; position:relative; }
+.tab.on { color:var(--accent); }
+.tab .badge { position:absolute; top:-2px; left:calc(50% + 6px); background:var(--red); color:#fff; border-radius:9px; font-size:11px; min-width:18px; height:18px; display:grid; place-items:center; padding:0 5px; font-weight:600; }
+
+/* shared bits */
+.muted { color:var(--muted); } .sm { font-size:12px; }
+.chips { display:inline-flex; gap:4px; flex-wrap:wrap; align-items:center; }
+.chip { display:inline-flex; align-items:center; gap:3px; font-size:11.5px; border-radius:10px; padding:1px 8px; background:var(--chip); color:var(--muted); white-space:nowrap; }
+.chip.red { background:var(--red-soft); color:var(--red); } .chip.amber { background:var(--amber-soft); color:var(--amber); }
+.chip.green { background:var(--accent-soft); color:var(--accent); } .chip.blue { background:var(--blue-soft); color:var(--blue); }
+.av { width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex:none; border:2px solid var(--surface); background:var(--accent-soft); color:var(--accent); }
+.av.t-b { background:var(--blue-soft); color:var(--blue); } .av.t-c { background:var(--amber-soft); color:var(--amber); }
+.av.lg { width:60px; height:60px; font-size:20px; border-width:0; }
+.avs { display:inline-flex; } .avs .av + .av { margin-left:-5px; }
+.seg { display:flex; background:var(--surface-2); border-radius:9px; padding:2px; gap:2px; }
+.seg button { flex:1; text-align:center !important; padding:6px 4px; border-radius:7px; font-size:13.5px; font-weight:500; color:var(--text); transition:background .2s; }
+.seg button.on { background:var(--surface); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.18); color:var(--accent); }
+.seg .n { color:var(--muted); font-weight:500; margin-left:3px; font-size:12px; }
+
+/* cards + swipe */
+.list { display:grid; gap:10px; }
+.swipe { position:relative; border-radius:12px; overflow:hidden; }
+.swipe-act { position:absolute; top:0; bottom:0; display:flex; }
+.swipe-act.lead { left:0; width:96px; } .swipe-act.trail { right:0; width:164px; }
+.swipe-act button { flex:1; display:grid; place-items:center; align-content:center; gap:3px; color:#fff; font-size:12px; font-weight:600; text-align:center !important; }
+.swipe-act .blue { background:#3b6db3; } .swipe-act .green { background:#2f7a5f; } .swipe-act .gray { background:#7b7a74; } .swipe-act .red { background:#c0392b; }
+.row-front { position:relative; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; transition:transform .28s cubic-bezier(.2,.8,.2,1); touch-action:pan-y; cursor:pointer; }
+.row-front.drag { transition:none; }
+.card-title { font-weight:600; font-size:16px; line-height:1.3; }
+.card-meta { display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px; }
+.card-right { display:inline-flex; align-items:center; gap:8px; }
+.empty { text-align:center; color:var(--muted); padding:26px 0; font-size:14px; }
+.hint { background:var(--accent-soft); color:var(--accent); border-radius:12px; padding:12px 14px; font-size:14px; margin-bottom:12px; }
+.hint b { font-weight:600; }
+.more-row { display:block; width:100%; text-align:center !important; color:var(--accent); font-size:15px; padding:12px 0 2px; }
+
+/* grouped lists (settings-style) */
+.cap { font-size:12.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; padding:18px 16px 6px; font-weight:500; }
+.cap.first { padding-top:6px; }
+.foot { font-size:12.5px; color:var(--muted); padding:6px 16px 0; }
+.group { background:var(--surface); border-radius:12px; overflow:hidden; }
+.r { display:flex; align-items:center; gap:10px; width:100%; min-height:46px; padding:8px 14px; position:relative; }
+.r + .r::before, .r + .cal-wrap::before { content:""; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--sep); }
+.r.av-r { padding-left:14px; } .r .grow { flex:1; }
+.r-l { font-size:16px; } .r-v { color:var(--muted); font-size:16px; display:inline-flex; align-items:center; gap:6px; }
+.r .chev { color:var(--muted); opacity:.7; }
+.r.danger, .r.danger .r-l { color:var(--red); justify-content:center; }
+.r.center { justify-content:center; text-align:center !important; color:var(--accent); font-weight:600; }
+.r input, .r textarea { flex:1; border:0; background:none; outline:0; font-size:16px; padding:0; min-width:0; }
+.r input::placeholder, .r textarea::placeholder, .composer textarea::placeholder { color:var(--muted); opacity:.8; }
+.r textarea { resize:none; min-height:84px; padding:6px 0; }
+.ck { color:var(--accent); display:inline-flex; }
+.err { color:var(--red); font-size:13.5px; padding:6px 16px 0; min-height:1.2em; }
+.ok-card { background:var(--accent-soft); color:var(--accent); border-radius:12px; padding:12px 14px; font-size:14px; margin-bottom:6px; }
+.ok-card b { font-family:ui-monospace,Menlo,monospace; }
+.btn-full { width:100%; background:var(--accent); color:var(--accent-text); border-radius:12px; padding:13px; text-align:center !important; font-weight:600; font-size:16px; }
+.btn-full.off { opacity:.45; pointer-events:none; }
+
+/* calendar */
+.cal-wrap { position:relative; padding:4px 10px 10px; }
+.cal-h { display:flex; justify-content:space-between; align-items:center; padding:6px 6px 8px; }
+.cal-h span button { padding:2px 12px; font-size:22px; color:var(--accent); }
+.cal-w, .cal-g { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; }
+.cal-w { font-size:11px; color:var(--muted); font-weight:600; padding-bottom:2px; }
+.cal-d { height:38px; display:grid; place-items:center; text-align:center !important; font-size:16px; border-radius:50%; margin:1px auto; width:38px; }
+.cal-d.today { color:var(--accent); font-weight:700; }
+.cal-d.sel { background:var(--accent); color:var(--accent-text); font-weight:700; }
+.cal-foot { text-align:center; padding-top:2px; } .cal-foot button { color:var(--accent); font-size:14px; padding:4px 10px; }
+
+/* task page */
+.d-title { width:100%; border:0; background:none; outline:0; font-size:24px; font-weight:700; line-height:1.2; letter-spacing:-.01em; padding:4px 2px 12px; resize:none; field-sizing:content; min-height:40px; }
+.thread { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+.comment { display:flex; gap:10px; } .comment .av { margin-top:2px; border:0; }
+.bubble { background:var(--surface); border-radius:4px 16px 16px 16px; padding:8px 12px; flex:1; font-size:15px; }
+.bubble .who { font-weight:600; font-size:14px; } .bubble .when { color:var(--muted); font-size:12px; margin-left:4px; }
+.bubble a { color:var(--accent); font-weight:600; }
+.event { color:var(--muted); font-size:12.5px; text-align:center; padding:0 12px; }
+.composer { flex:none; display:flex; gap:8px; align-items:flex-end; padding:8px 12px 30px; background:var(--surface); border-top:1px solid var(--sep); z-index:3; }
+.phone.kb .composer { padding-bottom:8px; }
+.composer textarea { flex:1; border:1px solid var(--border); background:var(--bg); border-radius:19px; padding:8px 14px; outline:0; resize:none; font-size:16px; field-sizing:content; max-height:110px; min-height:38px; }
+.send { width:34px; height:34px; border-radius:50%; background:var(--accent); color:var(--accent-text); display:grid; place-items:center !important; flex:none; margin-bottom:2px; }
+.send.off { opacity:.35; pointer-events:none; }
+
+/* sheets, popovers, overlays */
+.scrim { position:absolute; inset:0; background:var(--scrim); z-index:40; animation:fade .25s; }
+.scrim.clear { background:transparent; }
+.scrim.blur { backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); background:rgba(0,0,0,.28); z-index:60; }
+.sheet { position:absolute; left:0; right:0; bottom:0; top:30px; z-index:45; background:var(--bg); border-radius:14px 14px 0 0; display:flex; flex-direction:column; box-shadow:0 -4px 30px rgba(0,0,0,.25); }
+.sheet.anim-up { animation:up .4s cubic-bezier(.2,.8,.2,1); }
+.sheet .grab { width:36px; height:5px; border-radius:3px; background:var(--muted); opacity:.4; margin:6px auto 0; }
+.sheet-head { display:flex; align-items:center; justify-content:space-between; padding:8px 16px 10px; font-weight:600; font-size:17px; }
+.phone.kb .sheet { padding-bottom:300px; }
+.phone.kb .sheet .scroll { padding-bottom:12px; }
+.popover { position:absolute; top:104px; right:12px; width:236px; background:var(--surface); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.28); z-index:50; padding:6px 0; transform-origin:top right; border:1px solid var(--border); }
+.popover.anim { animation:pm .22s cubic-bezier(.2,.8,.2,1); }
+.pm { display:flex; align-items:center; width:100%; padding:10px 16px; gap:10px; font-size:16px; position:relative; }
+.pm .grow { flex:1; } .pm.red { color:var(--red); }
+.pm-sep { height:6px; background:var(--sep); margin:4px 0; }
+.pm-cap { font-size:12px; color:var(--muted); padding:4px 16px 2px; text-transform:uppercase; letter-spacing:.04em; }
+.ctx { position:absolute; left:18px; right:18px; top:150px; z-index:70; display:grid; gap:12px; animation:pm .25s cubic-bezier(.2,.8,.2,1); transform-origin:top center; }
+.ctx .row-front { cursor:default; box-shadow:0 12px 40px rgba(0,0,0,.3); }
+.ctx .menu { width:236px; background:var(--surface); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.3); padding:4px 0; overflow:hidden; }
+.ctx .pm + .pm::before { content:""; position:absolute; top:0; left:0; right:0; height:1px; background:var(--sep); }
+.asheet { position:absolute; left:8px; right:8px; bottom:30px; z-index:80; display:grid; gap:8px; animation:up .32s cubic-bezier(.2,.8,.2,1); }
+.asheet .box { background:var(--surface); border-radius:14px; overflow:hidden; }
+.asheet .msg { text-align:center; color:var(--muted); font-size:13px; padding:14px 18px 12px; border-bottom:1px solid var(--sep); }
+.asheet button { display:block; width:100%; text-align:center !important; padding:16px; font-size:19px; color:var(--accent); }
+.asheet .box button + button { border-top:1px solid var(--sep); }
+.asheet button.red { color:var(--red); } .asheet button.on { font-weight:700; }
+.asheet .cancel { background:var(--surface); border-radius:14px; font-weight:600; }
+.toast { position:absolute; left:16px; right:16px; bottom:104px; z-index:90; background:#2a2a28; color:#fff; border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:10px; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,.35); animation:up .3s cubic-bezier(.2,.8,.2,1); }
+.toast .grow { flex:1; } .toast button { color:#8fd3b9; font-weight:700; font-size:15px; }
+.phone.kb .toast { bottom:316px; }
+.banner { position:absolute; left:14px; right:14px; top:58px; z-index:100; background:var(--red-soft); color:var(--red); border:1px solid var(--red); border-radius:14px; padding:10px 14px; font-size:14px; box-shadow:var(--shadow); animation:up .3s reverse; display:flex; gap:10px; align-items:center; }
+.banner .grow { flex:1; } .banner button { color:var(--red); font-weight:700; }
+
+/* auth pages */
+.auth { justify-content:center; padding:54px 28px 40px; }
+.auth .logo { width:68px; height:68px; border-radius:16px; background:var(--accent); display:grid; place-items:center; color:#fff; margin:0 auto 14px; }
+.auth h1 { text-align:center; font-size:30px; letter-spacing:-.02em; }
+.auth .sub { text-align:center; color:var(--muted); margin:6px 0 22px; font-size:15px; }
+.auth .link { display:block; text-align:center !important; color:var(--accent); margin-top:14px; font-size:15px; }
+.phone.kb .auth { justify-content:flex-start; padding-top:100px; }
+</style>
+</head>
+<body>
+<div class="doc-top">
+  <b>Tasks · mobile mockups</b>
+  <nav>
+    <a href="#try">Try it</a><a href="#signin">Sign in</a><a href="#board">Board</a><a href="#task">Task</a><a href="#new">New task</a>
+    <a href="#me">Me &amp; people</a><a href="#states">States</a><a href="#map">Desktop → mobile</a><a href="#build">Building it</a>
+  </nav>
+  <button class="doc-btn" id="theme-all" type="button">Dark mode</button>
+</div>
+
+<div class="wrap">
+  <header class="lede">
+    <h1>Tasks on a phone</h1>
+    <p>Every phone below is a working mockup, not a picture: tap, swipe, hold and type. The layout keeps the desktop app's look (the same green, the same cards, chips and avatars) but behaves like an iPhone app: tabs at the bottom, a large title that collapses, swipe actions on rows, bottom sheets, action sheets and a context menu. Nothing here saves anywhere; each phone has its own pretend data (today is Sun 15 Nov 2026).</p>
+  </header>
+
+  <div class="cards4">
+    <div><h3>Same app, one screen at a time</h3><p>The desktop shows the summary strip and all three columns together. A phone shows one thing at a time, so they become tabs and a segmented control.</p></div>
+    <div><h3>Thumb first</h3><p>Primary actions sit at the bottom or top-right, rows are at least 44&nbsp;px tall, and anything destructive asks first in an action sheet.</p></div>
+    <div><h3>Drag-and-drop becomes swipe</h3><p>Dragging a card between columns doesn't work well on a phone. Swipe a row, hold it for a menu, or use the Status control inside the task.</p></div>
+    <div><h3>Still saves as you go</h3><p>No Save button anywhere, exactly like the desktop task drawer: each field saves when you leave it, and every change still lands in the task's updates.</p></div>
+  </div>
+
+  <section class="sec" id="try">
+    <h2>Try it</h2>
+    <p class="sub">This is the full app on one phone. Use the mouse like a finger: click to tap, click-and-drag a card sideways to swipe it, press and hold to open the quick menu.</p>
+    <div class="hero">
+      <div id="hero-phone"></div>
+      <div class="hero-side">
+        <h3>Things to try</h3>
+        <ul class="try">
+          <li><b>Swipe a card right</b> to move it on (Start → Done). Swipe left for <b>More</b> and <b>Delete</b>.</li>
+          <li><b>Press and hold</b> a card for a quick menu, like long-press on iOS.</li>
+          <li>Tap <b>My tasks ⌄</b> to switch between yours, everyone's, unassigned, or one person's.</li>
+          <li>Mark <b>GSTR-3B</b> as done: a toast offers <b>Undo</b>, and because it repeats monthly, the next one is created.</li>
+          <li>Tap a card, then tap <b>Due</b> for the inline calendar, or <b>Assignees</b> to pick people.</li>
+          <li>Write an update at the bottom of a task; the keyboard pushes the composer up.</li>
+          <li>Tap <b>+</b> to add a task in a bottom sheet. <b>Me</b> has theme, password, people and sign out.</li>
+        </ul>
+        <button class="doc-btn" id="hero-reset" type="button">Reset this phone</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="signin"><h2>Sign in</h2><p class="sub">The same two entry screens as desktop, centred and sized for one thumb.</p><div class="grid" data-group="signin"></div></section>
+  <section class="sec" id="board"><h2>Board and Coming up</h2><p class="sub">The two main tabs. <b>Board</b> replaces the three columns with a segmented control; <b>Coming up</b> replaces the summary strip.</p><div class="grid" data-group="board"></div></section>
+  <section class="sec" id="task"><h2>A single task</h2><p class="sub">The desktop drawer becomes a full-screen page that slides in from the right. Fields are grouped like iOS Settings and each one saves itself.</p><div class="grid" data-group="task"></div></section>
+  <section class="sec" id="new"><h2>Creating a task</h2><p class="sub">A bottom sheet over the board, the same fields as the desktop modal.</p><div class="grid" data-group="new"></div></section>
+  <section class="sec" id="me"><h2>Me and People</h2><p class="sub">The desktop user menu (theme, password, people, sign out) becomes the Me tab. People management is admin-only, as on desktop.</p><div class="grid" data-group="me"></div></section>
+  <section class="sec" id="states"><h2>States and feedback</h2><p class="sub">Empty states, errors, undo, and dark mode.</p><div class="grid" data-group="states"></div></section>
+
+  <section class="sec" id="map">
+    <h2>Desktop → mobile, piece by piece</h2>
+    <p class="sub">Nothing is dropped. Everything on the desktop page has a place on the phone.</p>
+    <table>
+      <tr><th style="width:26%">Desktop</th><th>Mobile</th></tr>
+      <tr><td>Top bar: title, “Showing” select, Help, + New task, user menu</td><td>Large-title navigation bar with a <b>“My tasks ⌄”</b> filter pill and a <b>+</b>. Help and the user menu move to the <b>Me</b> tab.</td></tr>
+      <tr><td>Summary strip (Overdue, Due today, Next 3 days)</td><td><b>Coming up</b> tab: three grouped lists with the same counts and the same “Show N more”. A red badge on the tab shows the overdue count.</td></tr>
+      <tr><td>Three-column board</td><td><b>Board</b> tab with a To do / Doing / Done segmented control showing the counts. “Done (last 14 days)” and “Show older” are kept.</td></tr>
+      <tr><td>Drag a card to another column</td><td>Swipe right to move it on, press-and-hold for “Move to…”, or use Status inside the task. Same endpoint underneath (<code>/tasks/{id}/move</code>).</td></tr>
+      <tr><td>Task drawer (main + sidebar)</td><td>Full-screen page pushed from the right: title, Status, grouped Assignees / Due / Repeats / Notes, the updates thread, and a composer pinned to the bottom.</td></tr>
+      <tr><td>New task modal</td><td>Bottom sheet with Cancel and Add in the header; Add stays dimmed until there's a title.</td></tr>
+      <tr><td>Date input, Repeats select</td><td>Inline calendar under the Due row; a picker sheet for Repeats.</td></tr>
+      <tr><td>Browser confirm() dialogs (delete task, reset password, remove person)</td><td>Action sheets with a red destructive button and a separate Cancel.</td></tr>
+      <tr><td>People modal</td><td>A page pushed from Me, with the Add person form at the bottom and the one-time temporary password shown in a green card with Copy.</td></tr>
+      <tr><td>Theme control (System / Light / Dark)</td><td>Appearance row in Me, same three choices.</td></tr>
+      <tr><td>Refresh every 60 s and on focus</td><td>Same: refresh every 60 s and when the app returns to the foreground, plus pull-to-refresh.</td></tr>
+      <tr><td>Error banner</td><td>A red banner under the status bar; tap Dismiss.</td></tr>
+    </table>
+  </section>
+
+  <section class="sec" id="build">
+    <h2>Building it without bloating the app</h2>
+    <p class="sub">A suggestion, in line with “keep it simple”. None of this is built yet.</p>
+    <div class="two">
+      <div class="note"><h3>Recommended approach</h3><ul>
+        <li>One responsive page, not a second app: a <code>max-width: 640px</code> block in <code>app.css</code> restyles the same templates (<code>_board.html</code>, <code>_summary.html</code>, <code>_panel.html</code>). No new dependency or build step.</li>
+        <li>No new routes or SQL. The tabs and segmented control only change which fragment is visible; swipe calls the existing move endpoint and returns <code>204</code> with <code>HX-Trigger: tasks-changed</code>.</li>
+        <li>About 100 more lines in <code>board.js</code>: swipe and long-press on cards, tab and segment switching, sheet behaviour. The drawer <code>&lt;dialog&gt;</code> becomes a full-screen page on narrow widths.</li>
+        <li>Inputs at 16&nbsp;px (so iOS doesn't zoom), safe-area padding via <code>env(safe-area-inset-*)</code>, <code>viewport-fit=cover</code>, and a home-screen icon so it can be added to the Home Screen.</li>
+      </ul></div>
+      <div class="note"><h3>Small additions beyond the desktop app</h3><ul>
+        <li><b>Undo toast</b> after moving a task (desktop has none). Optional.</li>
+        <li><b>Tab badge</b> with the overdue count. Optional.</li>
+        <li><b>Pull-to-refresh</b>, which only replaces the 60-second poll on a phone.</li>
+        <li>Remembered last tab and filter, like the filter is already remembered per browser.</li>
+      </ul></div>
+      <div class="note"><h3>Not included on purpose</h3><ul>
+        <li>No push notifications, offline mode or native app; they'd need a background service, which the philosophy doc rules out.</li>
+        <li>No edge-swipe-back gesture in these mockups (use the Back button); on a real iPhone, Safari provides it.</li>
+        <li>The /help manual stays a separate page, opened from Me.</li>
+      </ul></div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ===================================================================== data */
+const TODAY = new Date(2026, 10, 15);
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONF = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const RL = { none:"Never", weekly:"Weekly", monthly:"Monthly", quarterly:"Quarterly", yearly:"Yearly" };
+const SL = { todo:"To do", doing:"Doing", done:"Done" };
+const PEOPLE = [
+  { id:1, name:"Asha Iyer", user:"asha", admin:true, tone:"b" },
+  { id:2, name:"Meera Shah", user:"meera", admin:false, tone:"a" },
+  { id:3, name:"Neha Rao", user:"neha", admin:false, tone:"b" },
+  { id:4, name:"Ravi Kumar", user:"ravi", admin:false, tone:"c" },
+];
+const T0 = "Today, 9:41 am";
+const created = (who, extra) => ({ kind:"event", who, body:"created this" + (extra || ""), when:T0 });
+const SEED = [
+  { id:1, title:"TDS return Q2 - Mehta & Co", notes:"Form 24Q.", status:"doing", due:"2026-11-13", repeat:"quarterly", a:[1,2], ups:[
+    { kind:"event", who:4, body:"created this · assigned Asha Iyer, Meera Shah · repeats quarterly", when:"Today, 9:12 am" },
+    { kind:"event", who:1, body:"moved this to Doing", when:"Today, 9:14 am" },
+    { kind:"comment", who:1, body:"Emailed the client for the missing details.", when:"Today, 9:20 am" },
+    { kind:"comment", who:4, body:"I'll call them today, they usually reply by phone.", when:"Today, 9:31 am" },
+    { kind:"comment", who:1, body:"Salary breakup received for both employees. Starting the return now - see #4 for the related ITR.", when:"Today, 9:38 am" } ] },
+  { id:2, title:"GSTR-1 - Iyer Exports", notes:"", status:"todo", due:"2026-11-11", repeat:"none", a:[1], ups:[created(1)] },
+  { id:3, title:"PF challan - Kapoor Foods", notes:"", status:"todo", due:"2026-11-12", repeat:"none", a:[1], ups:[created(1)] },
+  { id:4, title:"ITR - R. Sharma", notes:"", status:"todo", due:"2026-11-16", repeat:"none", a:[1], ups:[created(1)] },
+  { id:5, title:"GSTR-3B - Patel Traders", notes:"Check ITC before filing.", status:"todo", due:"2026-11-15", repeat:"monthly", a:[1], ups:[created(4, " · repeats monthly")] },
+  { id:6, title:"ROC filing AOC-4 - Sharma Industries", notes:"", status:"todo", due:"2026-11-14", repeat:"none", a:[1], ups:[created(1)] },
+  { id:7, title:"Board minutes draft", notes:"", status:"todo", due:"2026-11-17", repeat:"none", a:[1,4], ups:[created(4)] },
+  { id:8, title:"Reconcile Q2 ledger - Iyer", notes:"", status:"done", due:"2026-11-10", doneOn:"2026-11-14", repeat:"none", a:[1,2,4], ups:[created(1)] },
+  { id:9, title:"Advance tax Q2 - Kapoor Foods", notes:"", status:"done", due:"2026-10-15", doneOn:"2026-10-14", repeat:"none", a:[1], ups:[created(1)] },
+  { id:10, title:"GSTR-9 prep - Iyer Exports", notes:"", status:"done", due:"2026-09-30", doneOn:"2026-09-29", repeat:"none", a:[1,2], ups:[created(1)] },
+];
+
+/* ===================================================================== helpers */
+const D = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const diff = s => Math.round((D(s) - TODAY) / 864e5);
+const sd = s => { const d = D(s); return DAYS[d.getDay()] + " " + d.getDate() + " " + MON[d.getMonth()]; };
+const ld = s => sd(s) + " " + D(s).getFullYear();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const ini = n => n.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+const clone = o => JSON.parse(JSON.stringify(o));
+function nextDue(repeat, s) {
+  const d = D(s);
+  if (repeat === "weekly") { d.setDate(d.getDate() + 7); return iso(d); }
+  const step = { monthly:1, quarterly:3, yearly:12 }[repeat], day = d.getDate();
+  const t = new Date(d.getFullYear(), d.getMonth() + step, 1);
+  t.setDate(Math.min(day, new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()));
+  return iso(t);
+}
+function dueChip(t) {
+  if (t.status === "done") return { txt:"Done " + D(t.doneOn).getDate() + " " + MON[D(t.doneOn).getMonth()], tone:"green" };
+  const n = diff(t.due);
+  if (n < 0) return { txt:(-n) + " day" + (n < -1 ? "s" : "") + " late", tone:"red" };
+  if (n === 0) return { txt:"Today", tone:"amber" };
+  return { txt:sd(t.due), tone:"" };
+}
+const IC = {
+  plus:"M12 5v14M5 12h14", back:"M15 5l-7 7 7 7", chev:"M9 5l7 7-7 7", down:"M6 9l6 6 6-6", check:"M5 12.5l4.5 4.5L19 7",
+  repeat:"M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4",
+  comment:"M21 12a8 8 0 01-11.6 7.1L4 20l1-4.8A8 8 0 1121 12z", board:"M4 5h4.5v14H4zM9.75 5h4.5v9h-4.5zM15.5 5H20v12h-4.5z",
+  cal:"M4 6h16v14H4zM4 10.5h16M8 3v4M16 3v4", person:"M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0",
+  trash:"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13", up:"M12 19V5M5 12l7-7 7 7", help:"M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1-1.5 2M12 17h.01",
+  next:"M5 12h14M13 6l6 6-6 6", dots:"M5 12h.01M12 12h.01M19 12h.01", copy:"M9 9h11v11H9zM5 15V4h11", open:"M14 4h6v6M20 4l-9 9M18 14v6H4V6h6",
+  undo:"M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3", lock:"M6 11h12v9H6zM8 11V8a4 4 0 018 0v3",
+};
+const ic = (n, s = 20, w = 2) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${IC[n]}"/></svg>`;
+const KB = `<div class="kb-wrap">${["qwertyuiop", "asdfghjkl", "⇧zxcvbnm⌫"].map(r => `<div class="kb-row">${[...r].map(k => `<span class="kb-k${"⇧⌫".includes(k) ? " mod" : ""}">${k}</span>`).join("")}</div>`).join("")}<div class="kb-row"><span class="kb-k mod">123</span><span class="kb-k sp">space</span><span class="kb-k ret">return</span></div></div>`;
+const STATUS_BAR = `<div class="statusbar"><span>9:41</span><span class="sb-r"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1.5 4.5a10 10 0 0114 0M4 7.3a6.3 6.3 0 019 0"/><circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none"/></svg><svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="22" height="12" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2" y="2" width="19" height="9" rx="2.2" fill="currentColor"/><path d="M24.5 4.5v4" stroke="currentColor" opacity=".5" stroke-linecap="round" stroke-width="1.5"/></svg></span></div>`;
+
+/* ===================================================================== the app */
+const apps = [];
+function mountApp(host, scene = {}) {
+  const root = document.createElement("div");
+  root.className = "phone";
+  host.appendChild(root);
+  const base = { auth:"in", tab:"board", seg:"todo", who:"me", me:1, stack:[], sheet:null, popover:null, action:null, ctx:null, swipe:null, toast:null, banner:null,
+    theme:document.documentElement.dataset.theme, kb:false, dp:null, open:{}, olderDone:false, expand:{}, fx:null, comment:"", flash:null, err:"",
+    draft:{ title:"", a:[1], due:iso(TODAY), repeat:"none", notes:"" }, f:{ user:"", pass:"", cur:"", n1:"", n2:"", name:"", uname:"" } };
+  const S = Object.assign(base, clone(scene.state || {}), { tasks:clone(SEED), people:clone(PEOPLE) });
+  S.draft = Object.assign({ title:"", a:[1], due:iso(TODAY), repeat:"none", notes:"" }, clone((scene.state || {}).draft || {}));
+  S.f = Object.assign({ user:"", pass:"", cur:"", n1:"", n2:"", name:"", uname:"" }, (scene.state || {}).f || {});
+  S.cal = { y:2026, m:10 };
+  let toastTimer = null, drag = null, suppress = false;
+  const person = id => S.people.find(p => p.id === id);
+  const me = () => person(S.me);
+  const task = id => S.tasks.find(t => t.id === id);
+  const av = p => `<span class="av t-${p.tone}" title="${esc(p.name)}">${ini(p.name)}</span>`;
+  const topPage = () => S.stack[S.stack.length - 1] || null;
+  const nComments = t => t.ups.filter(u => u.kind === "comment").length;
+  const whoLabel = () => ({ me:"My tasks", all:"Everyone", none:"Unassigned" }[S.who] || person(S.who).name.split(" ")[0]);
+  const bump = (n) => (ev) => ev;
+
+  /* ---- data ---- */
+  function mine() {
+    return S.tasks.filter(t => S.who === "me" ? t.a.includes(S.me) : S.who === "all" ? true : S.who === "none" ? !t.a.length : t.a.includes(S.who));
+  }
+  const byDue = (a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : a.id - b.id);
+  function column(status) {
+    let l = mine().filter(t => t.status === status);
+    if (status === "done") { l = l.filter(t => S.olderDone || diff(t.doneOn) >= -14); return l.sort((a, b) => (a.doneOn < b.doneOn ? 1 : -1)); }
+    return l.sort(byDue);
+  }
+  function buckets() {
+    const open = mine().filter(t => t.status !== "done").sort(byDue);
+    return { overdue:open.filter(t => diff(t.due) < 0), today:open.filter(t => diff(t.due) === 0), soon:open.filter(t => diff(t.due) >= 1 && diff(t.due) <= 3) };
+  }
+  function addEvent(t, body) { t.ups.push({ kind:"event", who:S.me, body, when:T0 }); }
+  function setStatus(t, s) {
+    const prev = t.status, undo = { id:t.id, prev, doneOn:t.doneOn };
+    if (prev === s) return;
+    t.status = s; t.doneOn = s === "done" ? iso(TODAY) : null;
+    addEvent(t, "moved this to " + SL[s]);
+    let extra = "";
+    if (s === "done" && t.repeat !== "none") {
+      const n = { id:Math.max(...S.tasks.map(x => x.id)) + 1, title:t.title, notes:t.notes, status:"todo", due:nextDue(t.repeat, t.due), repeat:t.repeat, a:[...t.a], ups:[{ kind:"event", who:S.me, body:"created this as the next " + t.repeat + " occurrence", when:T0 }] };
+      S.tasks.push(n); undo.spawn = n.id; extra = " · next one due " + sd(n.due);
+    }
+    S.swipe = null;
+    showToast("Moved to " + SL[s] + extra, undo);
+  }
+  function showToast(msg, undo) {
+    S.toast = { msg, undo };
+    clearTimeout(toastTimer);
+    if (!scene.pin) toastTimer = setTimeout(() => { S.toast = null; const el = root.querySelector(".toast"); if (el) el.remove(); }, 4200);
+  }
+
+  /* ---- view pieces ---- */
+  const row = (l, v, o = {}) => `<${o.act ? "button" : "div"} class="r ${o.cls || ""}"${o.act ? ` data-act="${o.act}" ${o.data || ""}` : ""}>${o.lead || ""}<span class="r-l${o.grow ? " grow" : ""}">${l}</span>${v ? `<span class="r-v grow" style="justify-content:flex-end">${v}</span>` : ""}${o.chev ? `<span class="chev">${ic("chev", 16)}</span>` : ""}</${o.act ? "button" : "div"}>`;
+  const field = (bind, ph, val, type = "text") => `<div class="r"><input data-bind="${bind}" type="${type}" placeholder="${ph}" value="${esc(val)}" autocomplete="off" autocapitalize="none"></div>`;
+  function navbar(o) {
+    return `<div class="nav"><div class="nav-bar">${o.left || ""}<div class="nav-title${o.always ? " always" : ""}">${o.title || ""}</div><div class="nav-r">${o.right || ""}</div></div></div>`;
+  }
+  function filterRight() {
+    return `<button class="pill nb" data-act="who-menu">${ic("person", 14)} ${whoLabel()} ${ic("down", 12)}</button><button class="nb circle" data-act="new-open" aria-label="New task">${ic("plus", 18, 2.4)}</button>`;
+  }
+  function card(t, o = {}) {
+    const c = dueChip(t), ppl = t.a.map(person), n = nComments(t);
+    const front = `<div class="card-title">${esc(t.title)}</div><div class="card-meta"><span class="chips"><span class="chip ${c.tone}">${c.txt}</span>${t.repeat !== "none" ? `<span class="chip blue">${ic("repeat", 11)} ${RL[t.repeat]}</span>` : ""}</span><span class="card-right">${n ? `<span class="muted sm">${ic("comment", 12)} ${n}</span>` : ""}<span class="avs">${ppl.map(av).join("") || '<span class="muted sm">Unassigned</span>'}</span></span></div>`;
+    if (o.plain) return `<div class="row-front">${front}</div>`;
+    const adv = { todo:["Start", "blue"], doing:["Done", "green"], done:["Reopen", "gray"] }[t.status];
+    const open = S.swipe && S.swipe.id === t.id ? S.swipe.side : "";
+    const tx = open === "lead" ? 96 : open === "trail" ? -164 : 0;
+    return `<div class="swipe" data-id="${t.id}">
+      <div class="swipe-act lead"><button class="${adv[1]}" data-act="advance" data-id="${t.id}">${ic(t.status === "done" ? "undo" : "next", 20)}${adv[0]}</button></div>
+      <div class="swipe-act trail"><button class="gray" data-act="ctx-open" data-id="${t.id}">${ic("dots", 20, 3)}More</button><button class="red" data-act="delete-ask" data-id="${t.id}">${ic("trash", 20)}Delete</button></div>
+      <article class="row-front" data-act="open" data-id="${t.id}" style="transform:translateX(${tx}px)" tabindex="0">${front}</article></div>`;
+  }
+  function boardPage() {
+    const counts = Object.fromEntries(Object.keys(SL).map(s => [s, column(s).length]));
+    const items = column(S.seg), total = mine().length;
+    let body = "";
+    if (S.who === "me" && total === 0) body += `<div class="hint">Nothing is assigned to you yet. Tap <b>My tasks</b> and choose <b>Everyone</b> to see the firm's tasks, or tap <b>+</b> to add one.</div>`;
+    body += items.length ? `<div class="list">${items.map(t => card(t)).join("")}</div>` : total === 0 && S.who === "me" ? "" : `<p class="empty">Nothing here. ${S.seg !== "done" && total ? "Swipe a card right, or open it, to move it here." : ""}</p>`;
+    if (S.seg === "done") body += S.olderDone ? "" : `<button class="more-row" data-act="show-older">Show older</button>`;
+    return `<div class="page ${S.fx === "pop" ? "anim-pop" : ""}">${navbar({ title:"Tasks", right:filterRight() })}
+      <div class="scroll"><div class="large">Tasks</div>
+        <div class="seg" style="margin-bottom:12px">${Object.keys(SL).map(s => `<button class="${S.seg === s ? "on" : ""}" data-act="seg" data-v="${s}">${s === "done" ? "Done" : SL[s]}<span class="n">${counts[s]}</span></button>`).join("")}</div>
+        ${S.seg === "done" ? `<div class="foot" style="padding:0 2px 10px">${S.olderDone ? "Showing everything finished." : "Finished in the last 14 days."}</div>` : ""}
+        ${body}</div>${tabbar()}</div>`;
+  }
+  function soonPage() {
+    const b = buckets(), groups = [["overdue", "Overdue", "red"], ["today", "Due today", "amber"], ["soon", "Next 3 days", ""]];
+    const html = groups.map(([k, label, tone], i) => {
+      const items = b[k], more = items.length > 3 && !S.expand[k], shown = more ? items.slice(0, 3) : items;
+      const rows = items.length ? shown.map(t => { const c = dueChip(t); return `<button class="r" data-act="open" data-id="${t.id}"><span class="r-l grow" style="font-size:15.5px">${esc(t.title)}</span>${t.repeat !== "none" ? `<span class="muted">${ic("repeat", 13)}</span>` : ""}${k !== "today" ? `<span class="chip ${tone === "red" ? "red" : ""}" style="background:none">${c.txt}</span>` : ""}<span class="chev">${ic("chev", 15)}</span></button>`; }).join("") : `<div class="r"><span class="muted">Nothing ${k === "overdue" ? "overdue" : "due"}.</span></div>`;
+      const toggle = items.length > 3 ? `<button class="r center" data-act="expand" data-v="${k}" style="font-weight:500">${S.expand[k] ? "Show less" : "Show " + (items.length - 3) + " more"}</button>` : "";
+      return `<div class="cap ${i ? "" : "first"}" style="display:flex;justify-content:space-between;${tone === "red" ? "color:var(--red)" : tone === "amber" ? "color:var(--amber)" : ""}"><span>${label}</span><span>${items.length}</span></div><div class="group">${rows}${toggle}</div>`;
+    }).join("");
+    return `<div class="page">${navbar({ title:"Coming up", right:filterRight() })}<div class="scroll"><div class="large">Coming up</div>${html}</div>${tabbar()}</div>`;
+  }
+  function mePage() {
+    const m = me();
+    return `<div class="page">${navbar({ title:"Me" })}<div class="scroll"><div class="large">Me</div>
+      <div class="group"><div class="r" style="padding:14px"><span class="av lg t-${m.tone}">${ini(m.name)}</span><span class="grow"><div style="font-size:18px;font-weight:600">${esc(m.name)}</div><div class="muted sm">@${m.user}${m.admin ? ' <span class="chip" style="margin-left:4px">admin</span>' : ""}</div></span></div></div>
+      <div class="cap">Appearance</div><div class="group"><div class="r"><div class="seg grow" style="flex:1">${["system", "light", "dark"].map(t => `<button class="${S.themePref === t || (!S.themePref && S.theme === t) ? "on" : ""}" data-act="theme" data-v="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div></div></div>
+      <div class="cap">Account</div><div class="group">${row("Change password", "", { act:"push", data:'data-v="pw"', chev:true, grow:true })}${m.admin ? row("Manage people", S.people.length + "", { act:"push", data:'data-v="people"', chev:true }) : ""}${row("Help – how to use this app", "", { act:"help", chev:true, grow:true })}</div>
+      <div class="cap"></div><div class="group">${row("Sign out", "", { act:"signout-ask", cls:"danger" })}</div>
+      <div class="foot" style="text-align:center;padding-top:16px">Tasks · stays signed in for 30 days on this phone</div></div>${tabbar()}</div>`;
+  }
+  function tabbar() {
+    const od = buckets().overdue.length;
+    const t = (id, label, icon) => `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab" data-v="${id}">${ic(icon, 25, S.tab === id ? 2.2 : 1.8)}<span>${label}</span>${id === "soon" && od ? `<span class="badge">${od}</span>` : ""}</button>`;
+    return `<div class="tabbar">${t("board", "Board", "board")}${t("soon", "Coming up", "cal")}${t("me", "Me", "person")}</div>`;
+  }
+  function calHTML(sel, key) {
+    const { y, m } = S.cal, first = new Date(y, m, 1).getDay(), n = new Date(y, m + 1, 0).getDate();
+    let cells = "";
+    for (let i = 0; i < first; i++) cells += "<span></span>";
+    for (let d = 1; d <= n; d++) { const s = iso(new Date(y, m, d)); cells += `<button class="cal-d ${s === sel ? "sel" : ""} ${s === iso(TODAY) ? "today" : ""}" data-act="dp-pick" data-key="${key}" data-v="${s}">${d}</button>`; }
+    return `<div class="cal-wrap"><div class="cal-h"><b>${MONF[m]} ${y}</b><span><button data-act="dp-nav" data-v="-1">${ic("back", 18)}</button><button data-act="dp-nav" data-v="1">${ic("chev", 18)}</button></span></div><div class="cal-w">${DAYS.map(d => `<span>${d[0]}</span>`).join("")}</div><div class="cal-g">${cells}</div><div class="cal-foot"><button data-act="dp-pick" data-key="${key}" data-v="${iso(TODAY)}">Today</button></div></div>`;
+  }
+  function assignRows(sel, ctxKey, id) {
+    return S.people.map(p => `<button class="r" data-act="toggle-a" data-key="${ctxKey}" data-id="${id || 0}" data-p="${p.id}">${av(p)}<span class="r-l grow">${esc(p.name)}</span><span class="ck">${sel.includes(p.id) ? ic("check", 20, 2.4) : ""}</span></button>`).join("");
+  }
+  function taskPage(t) {
+    const c = dueChip(t), names = t.a.map(id => person(id).name.split(" ")[0]).join(", ") || "Nobody";
+    const thread = t.ups.map(u => u.kind === "comment"
+      ? `<li class="comment">${av(person(u.who))}<div class="bubble"><span class="who">${esc(person(u.who).name)}</span><span class="when">${u.when}</span><div>${esc(u.body).replace(/#(\d+)/g, '<a>#$1</a>')}</div></div></li>`
+      : `<li class="event">${esc(person(u.who).name)} ${esc(u.body)} · ${u.when}</li>`).join("");
+    const series = t.repeat !== "none" ? `<div class="group" style="margin-top:12px"><button class="r" data-act="expand" data-v="series"><span class="r-l grow muted" style="font-size:14px">Other occurrences (2)</span><span class="chev" style="${S.expand.series ? "transform:rotate(90deg)" : ""}">${ic("chev", 15)}</span></button>${S.expand.series ? `<div class="r"><span class="r-l">${sd(nextDue(t.repeat, t.due))}</span><span class="muted sm">· To do</span></div><div class="r"><span class="r-l">${sd(nextDue(t.repeat, nextDue(t.repeat, t.due)))}</span><span class="muted sm">· To do</span></div>` : ""}</div>` : "";
+    return `<div class="page pushed ${S.fx === "push" ? "anim-push" : ""}">${navbar({ left:`<button class="nb" data-act="back">${ic("back", 22, 2.4)} ${S.tab === "soon" ? "Coming up" : "Tasks"}</button>`, title:"#" + t.id, always:true })}
+      <div class="scroll" data-task="${t.id}" style="padding-top:6px">
+        <textarea class="d-title" data-change="title" data-id="${t.id}" rows="1" aria-label="Title">${esc(t.title)}</textarea>
+        <div class="seg">${Object.keys(SL).map(s => `<button class="${t.status === s ? "on" : ""}" data-act="status" data-id="${t.id}" data-v="${s}">${SL[s]}</button>`).join("")}</div>
+        <div class="cap first" style="padding-top:18px">Details</div>
+        <div class="group">
+          <button class="r" data-act="open-assign"><span class="r-l">Assignees</span><span class="r-v grow" style="justify-content:flex-end"><span class="avs">${t.a.map(id => av(person(id))).join("")}</span>${S.open.assign ? "" : esc(names)}</span><span class="chev" style="${S.open.assign ? "transform:rotate(90deg)" : ""}">${ic("chev", 16)}</span></button>
+          ${S.open.assign ? assignRows(t.a, "task", t.id) : ""}
+        </div>
+        <div class="group" style="margin-top:12px">
+          <button class="r" data-act="dp-toggle" data-key="task"><span class="r-l">Due</span><span class="r-v grow" style="justify-content:flex-end"><span class="chip ${c.tone}">${c.txt}</span>${ld(t.due)}</span></button>
+          ${S.dp === "task" ? calHTML(t.due, "task") : ""}
+          <button class="r" data-act="repeat-open"><span class="r-l">Repeats</span><span class="r-v grow" style="justify-content:flex-end">${RL[t.repeat]}</span><span class="chev">${ic("chev", 16)}</span></button>
+        </div>
+        ${series}
+        <div class="cap">Notes</div>
+        <div class="group"><div class="r"><textarea data-change="notes" data-id="${t.id}" placeholder="Add notes…" style="min-height:64px">${esc(t.notes)}</textarea></div></div>
+        <div class="cap">Updates</div>
+        <ul class="thread">${thread}</ul>
+        <div class="cap"></div><div class="group">${row("Delete task", "", { act:"delete-ask", data:`data-id="${t.id}"`, cls:"danger" })}</div>
+      </div>
+      <div class="composer"><textarea data-bind="comment" rows="1" placeholder="Write an update…">${esc(S.comment)}</textarea><button class="send ${S.comment.trim() ? "" : "off"}" data-act="post" data-id="${t.id}" data-need="comment" aria-label="Post update">${ic("up", 18, 2.6)}</button></div></div>`;
+  }
+  function pwPage() {
+    const ok = S.f.cur && S.f.n1 && S.f.n2;
+    return `<div class="page pushed ${S.fx === "push" ? "anim-push" : ""}">${navbar({ left:`<button class="nb" data-act="back">${ic("back", 22, 2.4)} Me</button>`, title:"Change password", always:true, right:`<button class="nb bold ${ok ? "" : "off"}" data-act="pw-save" data-need="f.cur,f.n1,f.n2">Change</button>` })}
+      <div class="scroll" style="padding-top:12px"><div class="group">${field("f.cur", "Current password", S.f.cur, "password")}${field("f.n1", "New password", S.f.n1, "password")}${field("f.n2", "Type it again", S.f.n2, "password")}</div>
+      <div class="foot">At least 8 characters.</div><div class="err">${esc(S.err)}</div></div></div>`;
+  }
+  function peoplePage() {
+    const list = S.people.map(p => `<button class="r" data-act="person-ask" data-id="${p.id}">${av(p)}<span class="r-l grow">${esc(p.name)} <span class="muted sm">@${p.user}</span> ${p.admin ? '<span class="chip">admin</span>' : ""}</span><span class="chev">${ic("dots", 18, 3)}</span></button>`).join("");
+    return `<div class="page pushed ${S.fx === "push" ? "anim-push" : ""}">${navbar({ left:`<button class="nb" data-act="back">${ic("back", 22, 2.4)} Me</button>`, title:"People", always:true })}
+      <div class="scroll" style="padding-top:8px">${S.flash ? `<div class="ok-card">${S.flash}<div style="margin-top:8px"><button class="nb" data-act="copy" style="height:auto;font-size:14px;font-weight:600">${ic("copy", 14)} Copy password</button></div></div>` : ""}
+      <div class="group">${list}</div><div class="foot">Tap a person to reset their password, change their admin status or remove them.</div>
+      <div class="cap">Add a person</div><div class="group">${field("f.name", "Full name", S.f.name)}${field("f.uname", "Username, e.g. meera", S.f.uname)}</div>
+      <div class="err">${esc(S.err)}</div><div style="padding-top:4px"><button class="btn-full ${S.f.name && S.f.uname ? "" : "off"}" data-act="add-person" data-need="f.name,f.uname">Add person</button></div></div></div>`;
+  }
+  function newSheet() {
+    const d = S.draft;
+    return `<div class="scrim" data-act="new-close"></div><div class="sheet ${S.fx === "sheet" ? "anim-up" : ""}"><div class="grab"></div>
+      <div class="sheet-head"><button class="nb" data-act="new-close" style="font-weight:400">Cancel</button><span>New task</span><button class="nb bold ${d.title.trim() ? "" : "off"}" data-act="new-submit" data-need="draft.title">Add</button></div>
+      <div class="scroll" style="padding-top:4px">
+        <div class="group">${field("draft.title", "e.g. GSTR-3B – Patel Traders", d.title)}</div>
+        <div class="cap">Assign to</div><div class="group">${assignRows(d.a, "new")}</div>
+        <div class="cap"></div><div class="group">
+          <button class="r" data-act="dp-toggle" data-key="new"><span class="r-l">Due</span><span class="r-v grow" style="justify-content:flex-end">${ld(d.due)}</span></button>
+          ${S.dp === "new" ? calHTML(d.due, "new") : ""}
+          <button class="r" data-act="repeat-open"><span class="r-l">Repeats</span><span class="r-v grow" style="justify-content:flex-end">${RL[d.repeat]}</span><span class="chev">${ic("chev", 16)}</span></button></div>
+        <div class="cap">Notes (optional)</div><div class="group"><div class="r"><textarea data-bind="draft.notes" placeholder="Anything worth knowing…">${esc(d.notes)}</textarea></div></div>
+      </div></div>`;
+  }
+  function whoMenu() {
+    const it = (v, l) => `<button class="pm" data-act="set-who" data-v="${v}"><span class="grow">${l}</span>${String(S.who) === String(v) ? `<span class="ck">${ic("check", 18, 2.4)}</span>` : ""}</button>`;
+    return `<div class="scrim clear" data-act="close-overlay"></div><div class="popover ${S.fx === "pop-menu" ? "anim" : ""}"><div class="pm-cap">Showing</div>${it("me", "My tasks")}${it("all", "Everyone")}${it("none", "Unassigned")}<div class="pm-sep"></div><div class="pm-cap">Person</div>${S.people.map(p => it(p.id, esc(p.name))).join("")}</div>`;
+  }
+  function ctxMenu() {
+    const t = task(S.ctx), adv = { todo:["Start (move to Doing)", "doing"], doing:["Mark as done", "done"], done:["Reopen (move to To do)", "todo"] }[t.status];
+    return `<div class="scrim blur" data-act="close-overlay"></div><div class="ctx">${card(t, { plain:true })}<div class="menu">
+      <button class="pm" data-act="open" data-id="${t.id}"><span class="grow">Open</span>${ic("open", 18)}</button>
+      <button class="pm" data-act="status" data-id="${t.id}" data-v="${adv[1]}" data-close="1"><span class="grow">${adv[0]}</span>${ic("next", 18)}</button>
+      ${t.status !== "todo" && t.status !== "done" ? `<button class="pm" data-act="status" data-id="${t.id}" data-v="todo" data-close="1"><span class="grow">Move back to To do</span>${ic("undo", 18)}</button>` : ""}
+      <button class="pm" data-act="assign-from-ctx" data-id="${t.id}"><span class="grow">Assign…</span>${ic("person", 18)}</button>
+      <button class="pm red" data-act="delete-ask" data-id="${t.id}"><span class="grow">Delete</span>${ic("trash", 18)}</button></div></div>`;
+  }
+  function actionSheet() {
+    const a = S.action; let msg = "", items = [];
+    if (a.type === "delete") { msg = "Delete this task and all its updates? This can't be undone."; items = [{ l:"Delete task", d:1, act:"delete-do", id:a.id }]; }
+    else if (a.type === "signout") { msg = "Sign out of Tasks on this phone?"; items = [{ l:"Sign out", d:1, act:"signout" }]; }
+    else if (a.type === "repeat") {
+      const cur = a.key === "new" ? S.draft.repeat : task(topPageId()).repeat; msg = "Repeats";
+      items = Object.keys(RL).map(k => ({ l:RL[k], act:"repeat-set", v:k, on:k === cur }));
+    } else if (a.type === "person") {
+      const p = person(a.id); msg = p.name + " (@" + p.user + ")";
+      items = [{ l:"Reset password", act:"reset-ask", id:p.id }];
+      if (p.id !== S.me) items.push({ l:p.admin ? "Remove admin" : "Make admin", act:"toggle-admin", id:p.id }, { l:"Remove from the firm", d:1, act:"remove-ask", id:p.id });
+    } else if (a.type === "reset") { const p = person(a.id); msg = `Give ${p.name} a new temporary password? They'll be signed out.`; items = [{ l:"Reset password", d:1, act:"reset-do", id:p.id }]; }
+    else if (a.type === "remove") { const p = person(a.id); msg = `Remove ${p.name}? They won't be able to sign in, and they'll be taken off their open tasks. Their past updates stay.`; items = [{ l:"Remove " + p.name.split(" ")[0], d:1, act:"remove-do", id:p.id }]; }
+    return `<div class="scrim" data-act="close-overlay" style="z-index:75"></div><div class="asheet"><div class="box"><div class="msg">${esc(msg)}</div>${items.map(i => `<button class="${i.d ? "red" : ""} ${i.on ? "on" : ""}" data-act="${i.act}" data-id="${i.id || ""}" data-v="${i.v || ""}">${i.l}${i.on ? " ✓" : ""}</button>`).join("")}</div><button class="cancel" data-act="close-overlay">Cancel</button></div>`;
+  }
+  const topPageId = () => { const p = topPage(); return p && p.startsWith("task:") ? +p.slice(5) : null; };
+  function authPage() {
+    if (S.auth === "login") return `<div class="page auth"><div class="logo">${ic("check", 38, 3.2)}</div><h1>Tasks</h1><div class="sub">Sign in to your firm's board</div>
+      <div class="group">${field("f.user", "Username", S.f.user)}${field("f.pass", "Password", S.f.pass, "password")}</div><div class="err" style="text-align:center">${esc(S.err)}</div>
+      <div style="padding-top:8px"><button class="btn-full" data-act="login">Sign in</button></div><span class="muted sm" style="text-align:center;margin-top:12px">Stays signed in for 30 days on this phone.</span><a class="link" data-act="help">How to use this app</a></div>`;
+    return `<div class="page auth"><div class="logo">${ic("lock", 34, 2.4)}</div><h1>Welcome, Asha</h1><div class="sub">Please choose your own password to finish signing in.</div>
+      <div class="group">${field("f.n1", "New password", S.f.n1, "password")}${field("f.n2", "Type it again", S.f.n2, "password")}</div><div class="err" style="text-align:center">${esc(S.err)}</div>
+      <div style="padding-top:8px"><button class="btn-full" data-act="setpw">Save and continue</button></div><a class="link" data-act="signout">Sign out</a></div>`;
+  }
+
+  /* ---- render ---- */
+  function render() {
+    const scrolls = [...root.querySelectorAll(".scroll")].map(s => s.scrollTop);
+    root.dataset.theme = S.theme;
+    root.classList.toggle("kb", !!S.kb);
+    let html = `<div class="island"></div>${STATUS_BAR}<div class="screen">`;
+    if (S.auth !== "in") html += authPage();
+    else {
+      const tp = topPage(); let page = "";
+      if (tp && tp.startsWith("task:")) page = taskPage(task(+tp.slice(5)));
+      else if (tp === "pw") page = pwPage(); else if (tp === "people") page = peoplePage();
+      html += `<div class="stack ${S.sheet ? "recede" : ""}">${S.tab === "board" ? boardPage() : S.tab === "soon" ? soonPage() : mePage()}${page}</div>`;
+      if (S.sheet) html += newSheet();
+      if (S.popover) html += whoMenu();
+      if (S.ctx) html += ctxMenu();
+      if (S.action) html += actionSheet();
+      if (S.toast) html += `<div class="toast"><span class="grow">${esc(S.toast.msg)}</span>${S.toast.undo ? `<button data-act="undo">Undo</button>` : ""}</div>`;
+      if (S.banner) html += `<div class="banner"><span class="grow">${esc(S.banner)}</span><button data-act="dismiss">Dismiss</button></div>`;
+    }
+    root.innerHTML = html + `</div>${KB}<div class="home"></div>`;
+    const pages = root.querySelectorAll(".stack > .page, .screen > .page");
+    const sc = root.querySelectorAll(".scroll");
+    sc.forEach((s, i) => { if (scrolls[i] != null && !S.fx) s.scrollTop = scrolls[i]; });
+    if (scene.scrollEnd && !S.scrolled) { const s = root.querySelector("[data-task]"); if (s) s.scrollTop = s.scrollHeight; S.scrolled = true; }
+    if (S.scrollTop && !S.scrolled) { const s = root.querySelector("[data-task]") || root.querySelector(".scroll"); if (s) s.scrollTop = S.scrollTop; S.scrolled = true; }
+    root.querySelectorAll(".page").forEach(p => { const s = p.querySelector(".scroll"); p.classList.toggle("collapsed", !!s && s.scrollTop > 36); });
+    S.fx = null;
+    root.querySelectorAll("textarea.d-title").forEach(t => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; });
+  }
+  const get = path => path.split(".").reduce((o, k) => o[k], S);
+  function syncNeeds() {
+    root.querySelectorAll("[data-need]").forEach(b => { const ok = b.dataset.need.split(",").every(p => String(get(p)).trim()); b.classList.toggle("off", !ok); });
+  }
+
+  /* ---- actions ---- */
+  const A = {
+    tab: d => { S.tab = d.v; S.stack = []; S.dp = null; },
+    seg: d => { S.seg = d.v; },
+    expand: d => { S.expand[d.v] = !S.expand[d.v]; },
+    "show-older": () => { S.olderDone = true; },
+    open: d => { S.ctx = null; S.swipe = null; S.stack.push("task:" + d.id); S.fx = "push"; S.open = {}; S.dp = null; S.comment = ""; },
+    back: () => { S.stack.pop(); S.fx = "pop"; S.dp = null; S.f = { user:"", pass:"", cur:"", n1:"", n2:"", name:"", uname:"" }; S.err = ""; S.flash = null; },
+    push: d => { S.stack.push(d.v); S.fx = "push"; S.err = ""; },
+    advance: d => { const t = task(+d.id); setStatus(t, { todo:"doing", doing:"done", done:"todo" }[t.status]); },
+    status: d => { setStatus(task(+d.id), d.v); if (d.close) S.ctx = null; },
+    "ctx-open": d => { S.swipe = null; S.ctx = +d.id; },
+    "assign-from-ctx": d => { A.open(d); S.open = { assign:true }; },
+    "close-overlay": () => { S.popover = S.action = S.ctx = null; },
+    "who-menu": () => { S.popover = true; S.fx = "pop-menu"; },
+    "set-who": d => { S.who = d.v === "me" || d.v === "all" || d.v === "none" ? d.v : +d.v; S.popover = null; },
+    "new-open": () => { S.sheet = "new"; S.fx = "sheet"; S.kb = false; S.draft = { title:"", a:[S.me], due:iso(TODAY), repeat:"none", notes:"" }; S.dp = null; },
+    "new-close": () => { S.sheet = null; S.dp = null; S.kb = false; },
+    "new-submit": () => {
+      const d = S.draft; if (!d.title.trim()) return;
+      const t = { id:Math.max(...S.tasks.map(x => x.id)) + 1, title:d.title.trim(), notes:d.notes, status:"todo", due:d.due, repeat:d.repeat, a:[...d.a], ups:[{ kind:"event", who:S.me, body:"created this" + (d.a.length ? " · assigned " + d.a.map(i => person(i).name).join(", ") : "") + (d.repeat !== "none" ? " · repeats " + d.repeat : ""), when:T0 }] };
+      S.tasks.push(t); S.sheet = null; S.dp = null; S.kb = false; S.tab = "board"; S.seg = "todo"; showToast("Task created");
+    },
+    "toggle-a": d => {
+      const list = d.key === "new" ? S.draft.a : task(+d.id).a, p = +d.p, i = list.indexOf(p);
+      i < 0 ? list.push(p) : list.splice(i, 1);
+      if (d.key === "task") addEvent(task(+d.id), "changed the assignees to " + (list.map(x => person(x).name).join(", ") || "nobody"));
+    },
+    "open-assign": () => { S.open.assign = !S.open.assign; },
+    "dp-toggle": d => { S.dp = S.dp === d.key ? null : d.key; const s = d.key === "new" ? S.draft.due : task(topPageId()).due; S.cal = { y:D(s).getFullYear(), m:D(s).getMonth() }; },
+    "dp-nav": d => { S.cal.m += +d.v; if (S.cal.m < 0) { S.cal.m = 11; S.cal.y--; } if (S.cal.m > 11) { S.cal.m = 0; S.cal.y++; } },
+    "dp-pick": d => {
+      if (d.key === "new") S.draft.due = d.v; else { const t = task(topPageId()); t.due = d.v; addEvent(t, "changed the due date to " + sd(d.v)); }
+      S.dp = null;
+    },
+    "repeat-open": () => { S.action = { type:"repeat", key:topPageId() ? "task" : "new" }; },
+    "repeat-set": d => { if (S.sheet) S.draft.repeat = d.v; else { const t = task(topPageId()); t.repeat = d.v; addEvent(t, "changed repeats to " + RL[d.v].toLowerCase()); } S.action = null; },
+    post: d => { if (!S.comment.trim()) return; const t = task(+d.id); t.ups.push({ kind:"comment", who:S.me, body:S.comment.trim(), when:T0 }); S.comment = ""; S.kb = false; S.scrollBottom = true; },
+    "delete-ask": d => { S.ctx = null; S.swipe = null; S.action = { type:"delete", id:+d.id }; },
+    "delete-do": d => { S.tasks = S.tasks.filter(t => t.id !== +d.id); S.action = null; S.stack = []; S.fx = "pop"; showToast("Task deleted"); },
+    undo: () => {
+      const u = S.toast && S.toast.undo; if (!u) return;
+      const t = task(u.id); t.status = u.prev; t.doneOn = u.doneOn; t.ups.pop();
+      if (u.spawn) S.tasks = S.tasks.filter(x => x.id !== u.spawn);
+      S.toast = null;
+    },
+    dismiss: () => { S.banner = null; },
+    theme: d => { S.themePref = d.v; S.theme = d.v === "system" ? document.documentElement.dataset.theme : d.v; },
+    help: () => showToast("Opens the user manual (/help) in the browser"),
+    "signout-ask": () => { S.action = { type:"signout" }; },
+    signout: () => { S.action = null; S.auth = "login"; S.stack = []; S.f = { user:"", pass:"", cur:"", n1:"", n2:"", name:"", uname:"" }; S.err = ""; S.tab = "board"; S.kb = false; },
+    login: () => { if (!S.f.user.trim() || !S.f.pass) { S.err = "Enter your username and password."; return; } S.auth = "in"; S.err = ""; S.kb = false; S.f.pass = ""; },
+    setpw: () => { if (S.f.n1.length < 8) { S.err = "Use at least 8 characters."; return; } if (S.f.n1 !== S.f.n2) { S.err = "The two passwords don't match."; return; } S.auth = "in"; S.f.n1 = S.f.n2 = ""; S.err = ""; S.kb = false; },
+    "pw-save": () => {
+      if (S.f.n1.length < 8) { S.err = "Use at least 8 characters."; return; }
+      if (S.f.n1 !== S.f.n2) { S.err = "The two new passwords don't match."; return; }
+      S.stack.pop(); S.fx = "pop"; S.f.cur = S.f.n1 = S.f.n2 = ""; S.err = ""; S.kb = false; showToast("Password changed");
+    },
+    "person-ask": d => { S.action = { type:"person", id:+d.id }; },
+    "reset-ask": d => { S.action = { type:"reset", id:+d.id }; },
+    "remove-ask": d => { S.action = { type:"remove", id:+d.id }; },
+    "reset-do": d => { const p = person(+d.id); S.action = null; S.flash = `New temporary password for ${esc(p.name)}: <b>kvx3r-t2918</b>. Share it with them now; it won't be shown again.`; },
+    "toggle-admin": d => { const p = person(+d.id); p.admin = !p.admin; S.action = null; },
+    "remove-do": d => { const id = +d.id; S.people = S.people.filter(p => p.id !== id); S.tasks.forEach(t => { if (t.status !== "done") t.a = t.a.filter(x => x !== id); }); S.action = null; },
+    "add-person": () => {
+      const n = S.f.name.trim(), u = S.f.uname.trim();
+      if (!/^[a-zA-Z0-9._-]{2,32}$/.test(u)) { S.err = "Username: 2–32 letters, numbers, dots, dashes."; return; }
+      if (S.people.some(p => p.user === u.toLowerCase())) { S.err = "That username is already taken."; return; }
+      S.people.push({ id:Math.max(...S.people.map(p => p.id)) + 1, name:n, user:u.toLowerCase(), admin:false, tone:"b" });
+      S.flash = `Added ${esc(n)}. Username: <b>${esc(u.toLowerCase())}</b> · temporary password: <b>seshc-b4487</b>. Share it with them now; it won't be shown again.`;
+      S.f.name = S.f.uname = ""; S.err = ""; S.kb = false;
+    },
+    copy: () => showToast("Password copied"),
+  };
+
+  /* ---- events ---- */
+  root.addEventListener("click", e => {
+    if (suppress) return;
+    const el = e.target.closest("[data-act]");
+    if (S.swipe && !(el && el.closest(".swipe-act"))) { S.swipe = null; render(); return; }
+    if (!el) { if (S.kb && !e.target.closest("input,textarea")) { S.kb = false; render(); } return; }
+    const fn = A[el.dataset.act]; if (!fn) return;
+    if (!["new-submit"].includes(el.dataset.act)) { /* keep keyboard state unless the action ends editing */ }
+    if (S.kb && !["toggle-a"].includes(el.dataset.act)) { const a = el.dataset.act; if (!["post", "dp-toggle"].includes(a)) S.kb = false; }
+    fn(el.dataset, el); render();
+    if (S.scrollBottom) { S.scrollBottom = false; const s = root.querySelector("[data-task]"); if (s) s.scrollTop = s.scrollHeight; }
+  });
+  root.addEventListener("input", e => {
+    const b = e.target.dataset.bind; if (!b) return;
+    const parts = b.split("."), key = parts.pop(); parts.reduce((o, k) => o[k], S)[key] = e.target.value; syncNeeds();
+  });
+  root.addEventListener("change", e => {
+    const k = e.target.dataset.change; if (!k) return;
+    const t = task(+e.target.dataset.id); if (!t || t[k] === e.target.value) return;
+    if (k === "title" && !e.target.value.trim()) { e.target.value = t.title; return; }
+    t[k] = e.target.value; addEvent(t, k === "title" ? "renamed this" : "edited the notes");
+  });
+  root.addEventListener("focusin", e => { if (e.target.matches("input,textarea") && !S.kb) { S.kb = true; root.classList.add("kb"); } });
+  root.addEventListener("focusout", () => setTimeout(() => { if (!root.contains(document.activeElement) || !document.activeElement.matches("input,textarea")) { if (S.kb && !scene.keepKb) { S.kb = false; root.classList.remove("kb"); } } }, 80));
+  root.addEventListener("scroll", e => { const s = e.target; if (s.classList && s.classList.contains("scroll")) s.closest(".page").classList.toggle("collapsed", s.scrollTop > 36); }, true);
+
+  /* swipe (drag a card sideways) and press-and-hold (context menu) */
+  root.addEventListener("pointerdown", e => {
+    const front = e.target.closest(".swipe .row-front"); if (!front) return;
+    const id = +front.parentNode.dataset.id, open = S.swipe && S.swipe.id === id ? S.swipe.side : "";
+    drag = { front, id, x:e.clientX, y:e.clientY, base:open === "lead" ? 96 : open === "trail" ? -164 : 0, dx:0, moved:false, long:false };
+    drag.timer = setTimeout(() => { if (drag && !drag.moved) { drag.long = true; S.swipe = null; S.ctx = id; render(); } }, 480);
+  });
+  root.addEventListener("pointermove", e => {
+    if (!drag || drag.long) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && (Math.abs(dx) > 6) && Math.abs(dx) > Math.abs(dy)) { drag.moved = true; clearTimeout(drag.timer); drag.front.classList.add("drag"); try { drag.front.setPointerCapture(e.pointerId); } catch (_) {} }
+    else if (!drag.moved && Math.abs(dy) > 8) { clearTimeout(drag.timer); drag = null; return; }
+    if (drag.moved) { drag.dx = Math.max(-280, Math.min(280, drag.base + dx)); drag.front.style.transform = `translateX(${drag.dx}px)`; }
+  });
+  const endDrag = () => {
+    if (!drag) return; clearTimeout(drag.timer);
+    const d = drag; drag = null;
+    if (d.long) { suppress = true; setTimeout(() => (suppress = false), 60); return; }
+    if (!d.moved) return;
+    suppress = true; setTimeout(() => (suppress = false), 60);
+    d.front.classList.remove("drag");
+    if (d.dx > 200) { const t = task(d.id); setStatus(t, { todo:"doing", doing:"done", done:"todo" }[t.status]); }
+    else if (d.dx < -230) { S.swipe = null; S.action = { type:"delete", id:d.id }; }
+    else S.swipe = d.dx > 48 ? { id:d.id, side:"lead" } : d.dx < -48 ? { id:d.id, side:"trail" } : null;
+    render();
+  };
+  root.addEventListener("pointerup", endDrag);
+  root.addEventListener("pointercancel", endDrag);
+  root.addEventListener("contextmenu", e => { if (e.target.closest(".swipe")) e.preventDefault(); });
+
+  render();
+  if (S.scrollBottom) S.scrollBottom = false;
+  const app = { root, S, setTheme: t => { S.theme = t; S.themePref = null; render(); }, destroy: () => { root.remove(); apps.splice(apps.indexOf(app), 1); } };
+  apps.push(app);
+  return app;
+}
+
+/* ===================================================================== scenes */
+const FILLED = { title:"GSTR-3B – Patel Traders", a:[1, 2], due:"2026-11-20", repeat:"monthly", notes:"" };
+const SCENES = [
+  { g:"signin", t:"Sign in", d:"Centered, one thumb from the keyboard. Same fields and wording as desktop, and the same “stays signed in” note.", desk:"Login card", do:["Tap a field: the keyboard slides up and the form moves up with it","Tap Sign in with anything typed"], state:{ auth:"login" } },
+  { g:"signin", t:"Wrong details", d:"Errors appear inline under the fields, never in a pop-up.", desk:"Inline error under the login form", do:["Tap Sign in with the fields empty"], state:{ auth:"login", err:"Wrong username or password.", f:{ user:"asha" } } },
+  { g:"signin", t:"First sign-in: choose a password", d:"People added by an admin must pick their own password before they can do anything else.", desk:"“Welcome, name” screen shown when must_change_password is set", do:["Type an 8+ character password twice"], state:{ auth:"setpw" } },
+
+  { g:"board", t:"Board: To do", d:"The default tab. The large title collapses as you scroll. The pill is the old “Showing” select; + replaces the New task button. Cards are unchanged: title, due chip, repeat chip, comments, avatars.", desk:"Top bar + the To do column", do:["Tap a card to open it","Switch between To do / Doing / Done","Scroll to see the title collapse"], state:{} },
+  { g:"board", t:"Board: Done", d:"Done shows the last 14 days, with “Show older” for the rest, as on desktop.", desk:"Done (last 14 days) column and “Show older”", do:["Tap Show older"], state:{ seg:"done" } },
+  { g:"board", t:"Swipe right: move on", d:"Replaces drag-and-drop. The action depends on where the task is: Start, Done or Reopen. A long swipe commits it straight away.", desk:"Drag a card to the next column", do:["Tap Start","Or drag the card further right to the end"], state:{ swipe:{ id:5, side:"lead" } } },
+  { g:"board", t:"Swipe left: More and Delete", d:"More opens the quick menu. Delete always asks first, even after a long swipe.", desk:"Delete task in the drawer", do:["Tap Delete to see the confirmation","Tap More for the quick menu"], state:{ swipe:{ id:2, side:"trail" } } },
+  { g:"board", t:"Press and hold: quick menu", d:"A blurred background with the card lifted and a menu: open, move, assign, delete. Same as long-press on iOS.", desk:"(New: a shortcut for the drawer's sidebar)", do:["Mark as done","Assign… jumps to the assignees in the task"], state:{ ctx:2 } },
+  { g:"board", t:"Filter menu", d:"The “Showing” select becomes a pull-down menu with a checkmark. The choice is remembered, as on desktop, and applies to the Board and to Coming up.", desk:"“Showing” select in the top bar", do:["Pick Everyone, then see the counts change"], state:{ popover:true } },
+  { g:"board", t:"Coming up", d:"The summary strip, one group per list, each with its count and “Show N more”. The red badge on the tab is the overdue count. Tapping a row opens the task.", desk:"Overdue / Due today / Next 3 days cards", do:["Tap “Show 1 more”","Tap a row to open it"], state:{ tab:"soon" } },
+
+  { g:"task", t:"Task", d:"A page pushed from the right, with ‹ Tasks to go back. The title edits in place. Status is a segmented control. Details are grouped; the latest updates sit below with the composer fixed at the bottom.", desk:"Task drawer", do:["Tap Doing / Done to move it","Tap the title to rename","Scroll down to the updates and Delete"], state:{ stack:["task:1"] } },
+  { g:"task", t:"Task: assignees", d:"Tap Assignees to expand a checklist. Each tick saves on the spot and adds a line to the updates.", desk:"Assignee chips in the sidebar", do:["Tick and untick people"], state:{ stack:["task:1"], open:{ assign:true }, scrollTop:90 } },
+  { g:"task", t:"Task: due date", d:"An inline calendar opens under the row (no browser date picker), and picking a day closes it. The chip beside the date still shows “2 days late”.", desk:"Native date input", do:["Pick a day, or use the arrows to change month"], state:{ stack:["task:1"], dp:"task", scrollTop:150 } },
+  { g:"task", t:"Task: repeats", d:"The Repeats select becomes a picker sheet. Recurring tasks also show “Other occurrences”.", desk:"Repeats select", do:["Pick another schedule"], state:{ stack:["task:5"], action:{ type:"repeat", key:"task" } } },
+  { g:"task", t:"Writing an update", d:"The composer is pinned to the bottom and rides above the keyboard like Messages. The send button lights up once there's text. No Cmd+Enter needed.", desk:"Updates thread and Post update", do:["Type something and tap the arrow"], state:{ stack:["task:1"], kb:true, comment:"Client sent the missing Form 16. Filing today.", scrollEnd:true }, scrollEnd:true },
+  { g:"task", t:"Delete a task", d:"An action sheet from the bottom with a red button and a separate Cancel. This replaces the browser's confirm dialog.", desk:"“Delete this task and all its updates?” confirm", do:["Tap Cancel or the dimmed area to back out"], state:{ stack:["task:1"], action:{ type:"delete", id:1 } } },
+
+  { g:"new", t:"New task", d:"A sheet that slides up over the board, which shrinks back behind it. Add stays grey until there's a title. You're ticked as the assignee by default.", desk:"New task modal", do:["Type a title; Add lights up","Tick other people","Tap Add"], state:{ sheet:"new", kb:true, draft:{ title:"GSTR-3B – Patel" } }, keepKb:true },
+  { g:"new", t:"New task: choosing a date", d:"The same inline calendar as in a task. The keyboard goes away while you pick.", desk:"Due date field", do:["Tap a day"], state:{ sheet:"new", dp:"new", draft:FILLED } },
+
+  { g:"me", t:"Me", d:"Everything that lived in the user menu, plus Help. Theme changes right away. Sign out asks first.", desk:"User menu", do:["Try Light / Dark","Tap Sign out"], state:{ tab:"me" } },
+  { g:"me", t:"Change password", d:"A pushed page. The Change button is dimmed until all three fields are filled in. Errors appear under the fields.", desk:"Change password modal", do:["Fill the three fields (new ones must match)"], state:{ stack:["pw"], tab:"me", f:{ cur:"oldpassword", n1:"newpass99", n2:"newpass99" } } },
+  { g:"me", t:"People (admins only)", d:"All the people in a list; the form to add one is at the bottom. Tap someone for their actions.", desk:"People modal", do:["Tap a person","Add a person at the bottom"], state:{ stack:["people"], tab:"me" } },
+  { g:"me", t:"Person actions", d:"Reset password, make or remove admin, remove. Removing needs a second confirmation that says what happens.", desk:"Reset password / Make admin / Remove buttons", do:["Tap Reset password"], state:{ stack:["people"], tab:"me", action:{ type:"person", id:2 } } },
+  { g:"me", t:"Person added", d:"The temporary password is shown once, in a green card, with a Copy button.", desk:"“Added Neha Rao…” notice", do:["Add another person"], state:{ stack:["people"], tab:"me", flash:"Added <b>Neha Rao</b>. Username: <b>neha</b> · temporary password: <b>seshc-b4487</b>. Share it with them now; it won't be shown again." } },
+
+  { g:"states", t:"Done, with Undo", d:"Moving a task shows a toast with Undo. If the task repeats, it says the next one has been created, and Undo removes that one too.", desk:"(New; the desktop has no undo)", do:["Swipe GSTR-3B and tap Done, then Undo"], state:{ toast:{ msg:"Moved to Done · next one due Tue 15 Dec", undo:true }, seg:"done" }, pin:true },
+  { g:"states", t:"Nothing assigned", d:"Shown on My tasks when the person has none (this is Neha, who just joined). It says how to find the firm's tasks.", desk:"“Nothing is assigned to you yet”", do:["Tap My tasks and choose Everyone"], state:{ me:3 } },
+  { g:"states", t:"Couldn't save", d:"A failed change snaps back and a red banner explains. It stays until dismissed, and tasks refresh to the last saved state.", desk:"Error banner", do:["Tap Dismiss"], state:{ stack:["task:1"], banner:"Couldn't save. Check your connection and try again." } },
+  { g:"states", t:"Dark mode", d:"The desktop's dark palette. System, Light and Dark work as on desktop; the page-wide switch at the top of this document flips every phone.", desk:"Theme: Dark", do:["Switch in Me → Appearance"], state:{ theme:"dark" } },
+];
+
+/* ===================================================================== page wiring */
+let heroApp = null;
+function mountHero() { const h = document.getElementById("hero-phone"); if (heroApp) heroApp.destroy(); h.innerHTML = ""; heroApp = mountApp(h, {}); }
+mountHero();
+document.getElementById("hero-reset").onclick = mountHero;
+SCENES.forEach((s, i) => {
+  const grid = document.querySelector(`.grid[data-group="${s.g}"]`);
+  const fig = document.createElement("figure");
+  const host = document.createElement("div");
+  const cap = document.createElement("figcaption");
+  cap.innerHTML = `<h3><span class="num">${i + 1}</span>${s.t}</h3><p>${s.d}</p><ul>${s.do.map(x => `<li>${x}</li>`).join("")}</ul><div class="desk">Desktop: ${s.desk}</div>`;
+  fig.append(host, cap); grid.appendChild(fig);
+  mountApp(host, s);
+});
+document.getElementById("theme-all").onclick = e => {
+  const dark = document.documentElement.dataset.theme !== "dark", t = dark ? "dark" : "light";
+  document.documentElement.dataset.theme = t; e.target.textContent = dark ? "Light mode" : "Dark mode";
+  apps.forEach(a => a.setTheme(t));
+};
+</script>
+</body>
+</html>

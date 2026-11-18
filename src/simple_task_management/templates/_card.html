@@ -1,4 +1,6 @@
 {% from "_icons.html" import icon %}
+<div class="card-wrap">
+<div class="swipe-hint" aria-hidden="true"></div>
 <article class="card" draggable="true" data-task-id="{{ card.id }}" tabindex="0"
          hx-get="/tasks/{{ card.id }}" hx-target="#panel" hx-swap="innerHTML" hx-trigger="click, keyup[key=='Enter']">
   <div class="card-title">{{ card.title }}</div>
@@ -16,3 +18,4 @@
     </span>
   </div>
 </article>
+</div>

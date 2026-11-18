@@ -16,6 +16,10 @@ How the app is deployed and kept running at the firm. Step-by-step instructions 
 | Logs | `logs\app.log`, rotated at midnight, 14 days kept |
 | Config | `C:\TaskBoard\.env` (see `.env.example`); environment variables override it |
 
+### Phones: install it as an app
+
+Staff can put the app on their home screen so it opens full-screen with an icon: **iPhone** Safari → Share → *Add to Home Screen*; **Android** Chrome → ⋮ → *Install app* (or *Add to Home screen*). This needs no server setup beyond what's above, but Android only offers a real install over HTTPS, which `tailscale serve` provides. There is no offline mode, so Tailscale must be connected. On iPhone the installed app keeps its own sign-in, so each person signs in once more there.
+
 ## Scripts (`deploy/windows/`)
 
 All of them except `uninstall.ps1` dot-source `common.ps1`, which sets `$AppDir`, `$TaskName`, `$Port` and helpers such as `Get-UvPath`, `Test-AppHealthy`, `Stop-App` and `Start-App`.
