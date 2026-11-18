@@ -86,6 +86,7 @@
             {% endfor %}
           </div>
         </div>
+        <button type="button" class="menu-item" onclick="tbOpenDialog('notif-settings-dialog')">Notification settings</button>
         <button type="button" class="menu-item" onclick="tbOpenDialog('password-dialog')">Change password</button>
         {% if user.is_admin %}<button type="button" class="menu-item" onclick="tbOpenDialog('people-dialog')">Manage people</button>{% endif %}
         <button type="button" class="menu-item sep" hx-post="/logout" hx-swap="none">Sign out</button>
@@ -94,7 +95,7 @@
   </header>
 
   <div id="notif-panel" class="notif-panel" popover aria-label="Notifications">
-    <div class="notif-head"><strong>Notifications</strong></div>
+    <div class="notif-head"><strong>Notifications</strong><button type="button" class="linkbtn" onclick="tbOpenDialog('notif-settings-dialog')">Settings</button></div>
     {{ alerts_optin() }}
     <div id="notif-list" hx-get="/notifications"
          hx-trigger="toggle from:#notif-panel, notifications-changed from:body, notifications-new from:body"></div>
@@ -128,6 +129,7 @@
         </div>
         <h3 class="me-label">Account</h3>
         <div class="me-list">
+          <button type="button" onclick="tbOpenDialog('notif-settings-dialog')">Notification settings {{ icon("chevron-right", 16) }}</button>
           <button type="button" onclick="tbOpenDialog('password-dialog')">Change password {{ icon("chevron-right", 16) }}</button>
           {% if user.is_admin %}<button type="button" onclick="tbOpenDialog('people-dialog')">Manage people {{ icon("chevron-right", 16) }}</button>{% endif %}
           <a href="/help">How to use this app {{ icon("chevron-right", 16) }}</a>
@@ -175,6 +177,13 @@
         <button class="btn primary" type="submit">Create</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="notif-settings-dialog" class="modal">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    {{ alerts_optin() }}
+    <div id="notif-settings" hx-get="/notifications/settings" hx-trigger="notif-settings-open from:body"></div>
+    <div class="row end"><button class="btn" type="button" onclick="this.closest('dialog').close()">Done</button></div>
   </dialog>
 
   <dialog id="password-dialog" class="modal">

@@ -51,7 +51,7 @@ docs/             you are here
 
 ```bash
 uv sync                                              # install
-uv run pytest                                        # 111 tests, ~5 seconds
+uv run pytest                                        # 120 tests, ~5 seconds
 uv run ruff check . && uv run ruff format .          # lint + format (CI enforces both)
 DATA_DIR=demo-data uv run simple-task-management seed-demo
 DATA_DIR=demo-data uv run simple-task-management serve --reload

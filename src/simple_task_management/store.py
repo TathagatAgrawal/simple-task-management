@@ -20,6 +20,25 @@ STATUS_LABELS = {"todo": "To do", "doing": "Doing", "done": "Done"}
 MAX_TITLE = 200
 MAX_TEXT = 5000
 NOTIFICATION_KEEP_DAYS = 30
+# What a person can subscribe to: kind -> (short label, what it covers). Order is display order.
+NOTIFICATION_KINDS = {
+    "assigned": ("I'm assigned to a task", "A new task is given to me, or I'm added to one."),
+    "changed": (
+        "A task I'm on is edited",
+        "The title, notes, due date or repeat changes, or someone joins or leaves it.",
+    ),
+    "moved": ("A task I'm on moves", "It goes to another column or is marked Done."),
+    "comment": ("Someone comments", "A new comment on a task I'm on."),
+    "removed": ("I'm removed from a task", "Someone takes me off a task."),
+    "deleted": ("A task I'm on is deleted", "A task I was on is removed."),
+}
+# How a kind reaches a person: "alert" = in the bell, a message on the page and a desktop alert;
+# "inbox" = in the bell only; "off" = not at all. "alert" is the default for everything.
+NOTIFICATION_MODES = {
+    "alert": "Alert me",
+    "inbox": "Inbox only",
+    "off": "Off",
+}
 USERNAME_RE = re.compile(r"^[a-z0-9._-]{2,32}$")
 
 
@@ -413,9 +432,14 @@ def _notify(
     body: str,
     now: str,
     *,
+    kind: str,
     recipients: list[int] | None = None,
 ) -> None:
     """Tell people what ``actor`` just did to a task; never the actor themselves.
+
+    ``kind`` is one of ``NOTIFICATION_KINDS``. Each recipient's own settings for that kind decide
+    whether they are told at all ("off") and whether it also pops up ("alert") or only lands in
+    their inbox ("inbox").
 
     By default the recipients are the task's current assignees. Callers pass ``recipients``
     when someone who is no longer (or not yet) on the task should hear about it too. Call this
@@ -438,10 +462,23 @@ def _notify(
                 f"SELECT id FROM users WHERE is_active = 1 AND id IN ({marks})", wanted
             )
         ]
+        modes = {
+            r[0]: r[1]
+            for r in conn.execute(
+                f"SELECT user_id, mode FROM notification_settings WHERE kind = ? "
+                f"AND user_id IN ({','.join('?' * len(active))})",
+                [kind, *active],
+            )
+        }
         conn.executemany(
-            """INSERT INTO notifications (user_id, task_id, task_title, actor_id, body, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            [(uid, task_id, title, actor["id"], body, now) for uid in active],
+            """INSERT INTO notifications
+                   (user_id, task_id, task_title, actor_id, body, kind, announce, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                (uid, task_id, title, actor["id"], body, kind, int(modes.get(uid) != "inbox"), now)
+                for uid in active
+                if modes.get(uid) != "off"
+            ],
         )
     cutoff = (datetime.fromisoformat(now) - timedelta(days=NOTIFICATION_KEEP_DAYS)).isoformat(
         timespec="seconds"
@@ -449,10 +486,51 @@ def _notify(
     conn.execute("DELETE FROM notifications WHERE read_at IS NOT NULL AND read_at < ?", (cutoff,))
 
 
+def notification_settings(conn: sqlite3.Connection, user_id: int) -> dict[str, str]:
+    """A person's mode for every kind of notification, defaulting to "alert"."""
+    modes = dict.fromkeys(NOTIFICATION_KINDS, "alert")
+    for row in conn.execute(
+        "SELECT kind, mode FROM notification_settings WHERE user_id = ?", (user_id,)
+    ):
+        if row["kind"] in modes:
+            modes[row["kind"]] = row["mode"]
+    return modes
+
+
+def set_notification_settings(
+    conn: sqlite3.Connection, user_id: int, changes: dict[str, str]
+) -> None:
+    """Save a person's modes for some kinds; the default ("alert") is stored as no row."""
+    for kind, mode in changes.items():
+        if kind not in NOTIFICATION_KINDS or mode not in NOTIFICATION_MODES:
+            raise UserError("That notification setting isn't valid. Reload the page.")
+    with conn:
+        for kind, mode in changes.items():
+            if mode == "alert":
+                conn.execute(
+                    "DELETE FROM notification_settings WHERE user_id = ? AND kind = ?",
+                    (user_id, kind),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO notification_settings (user_id, kind, mode) VALUES (?, ?, ?) "
+                    "ON CONFLICT (user_id, kind) DO UPDATE SET mode = excluded.mode",
+                    (user_id, kind, mode),
+                )
+
+
 def notifications_for(
-    conn: sqlite3.Connection, user_id: int, *, after: int = 0, unread_only: bool = False
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    after: int = 0,
+    unread_only: bool = False,
+    announce_only: bool = False,
 ) -> list[sqlite3.Row]:
-    """A person's notifications, newest first (at most 50), optionally only newer than ``after``."""
+    """A person's notifications, newest first (at most 50), optionally only newer than ``after``.
+
+    ``announce_only`` leaves out the "inbox only" ones, which never pop up or send desktop alerts.
+    """
     return conn.execute(
         f"""SELECT n.id, n.task_id, n.body, n.created_at, n.read_at, a.name AS actor_name,
                    COALESCE(t.title, n.task_title) AS title, t.due_date, t.status
@@ -460,6 +538,7 @@ def notifications_for(
             LEFT JOIN tasks t ON t.id = n.task_id
             LEFT JOIN users a ON a.id = n.actor_id
             WHERE n.user_id = ? AND n.id > ?{" AND n.read_at IS NULL" if unread_only else ""}
+                  {" AND n.announce = 1" if announce_only else ""}
             ORDER BY n.id DESC LIMIT 50""",
         (user_id, after),
     ).fetchall()
@@ -549,7 +628,7 @@ def create_task(
         if repeat != "none":
             parts.append(f"repeats {repeat}")
         _event(conn, task_id, actor["id"], " · ".join(parts), now)
-        _notify(conn, actor, task_id, title, "assigned you a new task", now)
+        _notify(conn, actor, task_id, title, "assigned you a new task", now, kind="assigned")
     return task_id
 
 
@@ -613,7 +692,15 @@ def update_task(
         conn.execute(f"UPDATE tasks SET {sets} WHERE id = ?", [*changes.values(), task_id])
         for body in events:
             _event(conn, task_id, actor["id"], body, now)
-        _notify(conn, actor, task_id, changes.get("title", task["title"]), " · ".join(events), now)
+        _notify(
+            conn,
+            actor,
+            task_id,
+            changes.get("title", task["title"]),
+            " · ".join(events),
+            now,
+            kind="changed",
+        )
 
 
 def set_assignees(
@@ -645,11 +732,31 @@ def set_assignees(
         conn.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (now, task_id))
         _event(conn, task_id, actor["id"], " · ".join(parts), now)
         title = _require_task(conn, task_id)["title"]
-        _notify(conn, actor, task_id, title, "assigned you to this task", now, recipients=added)
-        _notify(conn, actor, task_id, title, "removed you from this task", now, recipients=removed)
+        _notify(
+            conn,
+            actor,
+            task_id,
+            title,
+            "assigned you to this task",
+            now,
+            kind="assigned",
+            recipients=added,
+        )
+        _notify(
+            conn,
+            actor,
+            task_id,
+            title,
+            "removed you from this task",
+            now,
+            kind="removed",
+            recipients=removed,
+        )
         # Everyone who was already on the task hears who joined or left.
         kept = [i for i in wanted if i not in added]
-        _notify(conn, actor, task_id, title, " · ".join(parts), now, recipients=kept)
+        _notify(
+            conn, actor, task_id, title, " · ".join(parts), now, kind="changed", recipients=kept
+        )
 
 
 def move_task(
@@ -673,7 +780,7 @@ def move_task(
             (status, now if status == "done" else None, now, task_id),
         )
         _event(conn, task_id, actor["id"], body, now)
-        _notify(conn, actor, task_id, task["title"], body, now)
+        _notify(conn, actor, task_id, task["title"], body, now, kind="moved")
         if status == "done" and task["repeat"] != "none":
             return _spawn_next(conn, task, now, today)
     return None
@@ -738,7 +845,7 @@ def add_comment(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int, body
         )
         conn.execute("UPDATE tasks SET updated_at = ? WHERE id = ?", (now, task_id))
         excerpt = body if len(body) <= 120 else body[:119].rstrip() + "…"
-        _notify(conn, actor, task_id, task["title"], f"commented: {excerpt}", now)
+        _notify(conn, actor, task_id, task["title"], f"commented: {excerpt}", now, kind="comment")
 
 
 def delete_task(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int) -> None:
@@ -749,5 +856,7 @@ def delete_task(conn: sqlite3.Connection, actor: sqlite3.Row, task_id: int) -> N
     task = get_task(conn, task_id)
     with conn:
         if task is not None:
-            _notify(conn, actor, task_id, task["title"], "deleted this task", now_iso())
+            _notify(
+                conn, actor, task_id, task["title"], "deleted this task", now_iso(), kind="deleted"
+            )
         conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))

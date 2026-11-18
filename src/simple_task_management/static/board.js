@@ -238,6 +238,7 @@
     document.querySelectorAll("details.usermenu[open]").forEach((d) => d.removeAttribute("open"));
     dialog.showModal();
     if (id === "people-dialog") htmx.trigger(body, "people-open");
+    if (id === "notif-settings-dialog") htmx.trigger(body, "notif-settings-open");
   };
   body.addEventListener("people-changed", () => {
     const dialog = document.getElementById("people-dialog");
@@ -526,7 +527,7 @@
     htmx.trigger(body, "notifications-new");
     let fresh = [];
     try {
-      const res = await fetch("/api/notifications?unread=true&after=" + seen, { headers: { Accept: "application/json" } });
+      const res = await fetch("/api/notifications?unread=true&announce=true&after=" + seen, { headers: { Accept: "application/json" } });
       if (res.ok) fresh = (await res.json()).reverse();
     } catch (_) { return; }
     const looking = document.visibilityState === "visible";

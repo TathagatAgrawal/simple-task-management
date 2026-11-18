@@ -413,6 +413,41 @@ def create_app(
         ]
         return render(request, "_notif_list.html", items=items)
 
+    @app.get("/notifications/settings", response_class=HTMLResponse)
+    def notification_settings(request: Request, conn: Conn, user: User) -> HTMLResponse:
+        """The form where I choose which notifications I get, and how."""
+        return render(
+            request,
+            "_notif_settings.html",
+            kinds=store.NOTIFICATION_KINDS,
+            modes=store.NOTIFICATION_MODES,
+            current=store.notification_settings(conn, user["id"]),
+        )
+
+    @app.post("/me/notifications", response_class=HTMLResponse)
+    def save_notification_settings(
+        conn: Conn,
+        user: User,
+        mode_assigned: Annotated[str | None, Form()] = None,
+        mode_changed: Annotated[str | None, Form()] = None,
+        mode_moved: Annotated[str | None, Form()] = None,
+        mode_comment: Annotated[str | None, Form()] = None,
+        mode_removed: Annotated[str | None, Form()] = None,
+        mode_deleted: Annotated[str | None, Form()] = None,
+    ) -> HTMLResponse:
+        """Save the settings form (a mode per kind) and confirm with a short "Saved"."""
+        picked = {
+            "assigned": mode_assigned,
+            "changed": mode_changed,
+            "moved": mode_moved,
+            "comment": mode_comment,
+            "removed": mode_removed,
+            "deleted": mode_deleted,
+        }
+        changes = {kind: mode for kind, mode in picked.items() if mode is not None}
+        store.set_notification_settings(conn, user["id"], changes)
+        return HTMLResponse("Saved ✓")
+
     @app.post("/notifications/read-all", status_code=204)
     def notifications_read_all(conn: Conn, user: User) -> Response:
         """Mark every notification of mine as read."""

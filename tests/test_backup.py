@@ -36,5 +36,5 @@ def test_seconds_until_next_backup():
 
 def test_migrate_is_idempotent(settings, conn):
     """Running migrations again leaves the schema version unchanged."""
-    assert db.migrate(conn) == 2
+    assert db.migrate(conn) == 3
     assert store.active_people(conn) == []

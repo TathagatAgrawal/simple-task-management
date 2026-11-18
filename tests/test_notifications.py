@@ -159,7 +159,7 @@ def test_migration_adds_the_table_to_a_version_1_database(tmp_path):
     conn = db.connect(tmp_path / "old.db")
     conn.executescript(db.SCHEMA_PATH.read_text(encoding="utf-8"))
     conn.execute("PRAGMA user_version = 1")
-    assert db.migrate(conn) == 2
+    assert db.migrate(conn) == 3
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 
@@ -168,3 +168,131 @@ def test_service_worker_is_served_from_the_root(asha):
     r = asha.get("/sw.js")
     assert r.status_code == 200 and "javascript" in r.headers["content-type"]
     assert "notificationclick" in r.text
+
+
+def _kinds(conn):
+    """Every notification as ``(recipient username, kind, announce)``, oldest first."""
+    return [
+        (r["username"], r["kind"], r["announce"])
+        for r in conn.execute(
+            "SELECT u.username, n.kind, n.announce FROM notifications n "
+            "JOIN users u ON u.id = n.user_id ORDER BY n.id"
+        )
+    ]
+
+
+def test_each_change_has_its_own_kind(asha, conn, users):
+    """Creating, editing, moving, commenting, removing and deleting each use their own kind."""
+    new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
+    task_id = _first_task(conn)
+    asha.post(f"/tasks/{task_id}", data={"title": "Renamed"})
+    asha.post(f"/tasks/{task_id}/move", data={"status": "doing"})
+    asha.post(f"/tasks/{task_id}/updates", data={"body": "Hello"})
+    asha.post(f"/tasks/{task_id}/assignees", data={"assignee_ids": [users["ravi"]]})
+    asha.post(f"/tasks/{task_id}/delete")
+    kinds = [k for _, k, _ in _kinds(conn)]
+    assert kinds == [
+        "assigned", "assigned",
+        "changed", "changed",
+        "moved", "moved",
+        "comment", "comment",
+        "removed", "changed",
+        "deleted",
+    ]  # fmt: skip
+
+
+def test_default_settings_alert_for_everything(conn, users):
+    """Without any saved choice, every kind is "alert", which is how it behaved before settings."""
+    assert store.notification_settings(conn, users["ravi"]) == dict.fromkeys(
+        store.NOTIFICATION_KINDS, "alert"
+    )
+
+
+def test_off_skips_only_that_person_and_kind(asha, ravi, conn, users):
+    """Turning a kind off stops it for that person alone; their other kinds still arrive."""
+    ravi.post("/me/notifications", data={"mode_comment": "off"})
+    new_task(asha, assignee_ids=[users["ravi"], users["meera"]])
+    task_id = _first_task(conn)
+    asha.post(f"/tasks/{task_id}/updates", data={"body": "Hello"})
+    got = {(u, k) for u, k, _ in _kinds(conn)}
+    assert ("meera", "comment") in got and ("ravi", "comment") not in got
+    assert ("ravi", "assigned") in got
+
+
+def test_inbox_only_is_listed_but_not_announced(asha, ravi, conn, users):
+    """The inbox-only mode keeps a notification in the bell but out of pop-ups and desktop alerts."""
+    ravi.post("/me/notifications", data={"mode_assigned": "inbox"})
+    new_task(asha, assignee_ids=[users["ravi"]])
+    assert _kinds(conn) == [("ravi", "assigned", 0)]
+    assert "assigned you a new task" in ravi.get("/notifications").text
+    assert ravi.get("/api/notifications?unread=true").json() != []
+    assert ravi.get("/api/notifications?unread=true&announce=true").json() == []
+    # The bell still counts it as unread.
+    assert 'data-unread="1"' in ravi.get("/notifications/badge").text
+
+
+def test_saving_settings_and_going_back_to_default(ravi, conn, users):
+    """The form saves a choice; choosing "Alert me" again removes the stored row."""
+    r = ravi.post("/me/notifications", data={"mode_moved": "inbox", "mode_comment": "off"})
+    assert r.status_code == 200 and "Saved" in r.text
+    assert store.notification_settings(conn, users["ravi"])["moved"] == "inbox"
+    assert store.notification_settings(conn, users["ravi"])["comment"] == "off"
+    ravi.post("/me/notifications", data={"mode_moved": "alert"})
+    assert conn.execute("SELECT COUNT(*) FROM notification_settings").fetchone()[0] == 1
+    page = ravi.get("/notifications/settings").text
+    assert 'name="mode_comment" value="off" checked' in page
+    assert 'name="mode_assigned" value="alert" checked' in page
+
+
+def test_invalid_setting_is_refused(ravi, conn, users):
+    """An unknown mode is rejected and nothing is saved."""
+    r = ravi.post("/me/notifications", data={"mode_comment": "shout"})
+    assert r.status_code == 400
+    assert conn.execute("SELECT COUNT(*) FROM notification_settings").fetchone()[0] == 0
+
+
+def test_settings_are_per_person(asha, ravi, conn, users):
+    """One person's choices never change another's."""
+    ravi.post("/me/notifications", data={"mode_assigned": "off"})
+    assert store.notification_settings(conn, users["asha"])["assigned"] == "alert"
+    assert store.notification_settings(conn, users["meera"])["assigned"] == "alert"
+
+
+def test_api_notification_settings(app, users):
+    """The JSON API reads and changes my settings, and refuses bad values."""
+    from conftest import sign_in
+
+    client = sign_in(app, "ravi")
+    assert client.get("/api/me/notification-settings").json()["comment"] == "alert"
+    r = client.patch("/api/me/notification-settings", json={"comment": "inbox", "moved": "off"})
+    assert r.status_code == 200
+    assert r.json()["comment"] == "inbox" and r.json()["moved"] == "off"
+    bad = client.patch("/api/me/notification-settings", json={"comment": "shout"})
+    assert bad.status_code == 400
+
+
+def test_migration_backfills_the_kind_of_old_notifications(tmp_path):
+    """Notifications written before settings existed get a kind worked out from their text."""
+    conn = db.connect(tmp_path / "v2.db")
+    conn.executescript(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+    conn.executescript(db.MIGRATIONS[0])
+    conn.execute("PRAGMA user_version = 2")
+    conn.execute("PRAGMA foreign_keys = OFF")
+    bodies = [
+        "assigned you a new task",
+        "removed you from this task",
+        "commented: hi",
+        "deleted this task",
+        "marked this Done",
+        "moved this to Doing",
+        "changed the due date from A to B",
+    ]
+    for body in bodies:
+        conn.execute(
+            "INSERT INTO notifications (user_id, task_id, task_title, body, created_at) "
+            "VALUES (1, 1, 'T', ?, '2026-11-14T00:00:00+00:00')",
+            (body,),
+        )
+    assert db.migrate(conn) == 3
+    kinds = [r[0] for r in conn.execute("SELECT kind FROM notifications ORDER BY id")]
+    assert kinds == ["assigned", "removed", "comment", "deleted", "moved", "moved", "changed"]
