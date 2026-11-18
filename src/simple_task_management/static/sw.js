@@ -3,6 +3,12 @@
 // notifications to the operating system, both while the board is open (the page asks for them)
 // and when it is closed (the server pushes them).
 
+// A new version of this file replaces the old one at once, instead of waiting until every board
+// tab is closed: someone who turned on desktop alerts before pushes existed would otherwise keep a
+// worker that cannot show them. It holds no state, so swapping it mid-session is safe.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 // A push from the server. Every push must show something (iPhone insists), so it always does,
 // whether or not the board is open: on devices with push the page shows no popup of its own.
 self.addEventListener("push", (event) => {

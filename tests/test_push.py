@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from conftest import move, new_task, sign_in
+from fastapi.testclient import TestClient
 from pywebpush import WebPushException, webpush
 
 from simple_task_management import db, push, store
@@ -312,8 +313,6 @@ def test_api_test_alert(on_app, users, conn):
 
 def test_api_push_requires_sign_in_and_can_be_switched_off(app, users):
     """Signed-out callers are refused, and a server with push off says so."""
-    from fastapi.testclient import TestClient
-
     assert TestClient(app).get("/api/push").status_code == 401
     ravi = sign_in(app, "ravi")
     info = ravi.get("/api/push").json()
@@ -332,3 +331,10 @@ def test_the_background_loop_pushes_after_a_change(on_app, users, conn):
     while not recorder.sent and time.monotonic() < deadline:
         time.sleep(0.05)
     assert [m["title"] for _, m in recorder.sent] == ["From the loop"]
+
+
+def test_a_new_service_worker_takes_over_at_once(app):
+    """Someone who had desktop alerts before pushes existed must get the push handler right away."""
+    body = TestClient(app).get("/sw.js").text
+    assert 'addEventListener("push"' in body
+    assert "skipWaiting()" in body and "clients.claim()" in body
