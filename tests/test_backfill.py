@@ -127,3 +127,24 @@ def test_a_new_install_has_nothing_to_backfill(tmp_path):
     conn = db.connect(tmp_path / "new.db")
     assert db.migrate(conn) == 5
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
+
+
+def test_people_who_turned_assigned_notifications_off_are_not_told(tmp_path):
+    """The backfill respects a saved choice of "Nothing" for assignments; "Bell only" still gets it."""
+    conn = _old_database(tmp_path / "old.db", stop_at=3)
+    conn.executemany(
+        "INSERT INTO notification_settings (user_id, kind, mode) VALUES (?, ?, ?)",
+        [(3, "assigned", "off"), (2, "assigned", "inbox"), (2, "comment", "off")],
+    )
+    conn.commit()
+    db.migrate(conn)
+    assert _rows(conn) == [(2, 1), (2, 4), (2, 6)]  # Meera (3) chose Nothing; Ravi did not
+    saved = [
+        tuple(r)
+        for r in conn.execute("SELECT user_id, kind, mode FROM notification_settings ORDER BY 1, 2")
+    ]
+    assert saved == [
+        (2, "assigned", "inbox"),
+        (2, "comment", "off"),
+        (3, "assigned", "off"),
+    ]  # untouched
