@@ -184,7 +184,7 @@ Start-ScheduledTask -TaskName TaskBoardUpdate
 Get-Content C:\TaskBoard\logs\update.log -Tail 30
 ```
 
-If **Update automatically at night** is off, the log should say that automatic updates are turned off and nothing was installed. If it is on and a new version is waiting, it installs. The **Updates** window shows the result as well.
+What the log says depends on the situation. If the PC is already up to date, it says so. If a new version is waiting and **Update automatically at night** is off, it lists the changes and says that automatic updates are turned off and nothing was installed. If a new version is waiting and the switch is on, it installs it. The **Updates** window shows the result as well.
 
 ## Part 3: Later updates by hand
 
