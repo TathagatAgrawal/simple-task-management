@@ -1,7 +1,8 @@
 // The whole page: sign-in, set-password, or the board, depending on who's signed in.
 import { Login, SetPassword } from "./components/Auth";
 import { BoardView, Summary } from "./components/Board";
-import { AlertsView, Banner, CardActions, MeView, TabBar, TopBar } from "./components/Chrome";
+import { AlertsView, Banner, CardActions, MeView, TabBar, TopBar, UndoBar } from "./components/Chrome";
+import { ConfirmDialog } from "./components/Confirm";
 import { NewTaskForm, PasswordForm, PeopleDialog, UpdatesDialog } from "./components/Dialogs";
 import { Modal } from "./components/Modal";
 import { BellPanel, NotificationSettings, Toasts } from "./components/Notifications";
@@ -26,6 +27,7 @@ export function App() {
           <MeView />
         </main>
         <TabBar />
+        <UndoBar />
         <CardActions />
         <TaskDrawer />
         <Modal name="new-task" labelledBy="new-task-title">
@@ -50,6 +52,7 @@ export function App() {
             <UpdatesDialog />
           </Modal>
         )}
+        <ConfirmDialog />
       </>
     );
   }

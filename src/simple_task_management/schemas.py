@@ -117,6 +117,15 @@ class SummaryItem(BaseModel):
     repeat: str
 
 
+class OtherOverdue(BaseModel):
+    """An overdue task the current "Showing" choice hides, with who it belongs to."""
+
+    id: int
+    title: str
+    due_label: str
+    people: str
+
+
 class Summary(BaseModel):
     """The deadline strip."""
 
@@ -124,6 +133,7 @@ class Summary(BaseModel):
     today: list[SummaryItem]
     soon: list[SummaryItem]
     firm_overdue: int
+    others_overdue: list[OtherOverdue]
 
 
 class Update(BaseModel):

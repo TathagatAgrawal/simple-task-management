@@ -2,13 +2,14 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { isPhone } from "../gestures";
-import type { Card as CardData, Status, SummaryItem } from "../api/types";
+import type { Card as CardData, OtherOverdue, Status, SummaryItem } from "../api/types";
 import {
   board, doneDays, focusCardId, meta, moveTask, openTask, openTaskId, search, setDragging, setSeg,
-  setWho, showOlder, summary, who,
+  setTab, setWho, showOlder, summary, who,
 } from "../state";
 import { Avatar } from "./bits";
 import { Icon } from "./Icon";
+import { recall, remember } from "../util";
 
 const SUMMARY_LIMIT = 3;
 
@@ -22,20 +23,26 @@ function SummaryGroup({
   keyName,
   label,
   items,
-  more = 0,
+  others = [],
+  hidden = 0,
 }: {
   keyName: "overdue" | "today" | "soon";
   label: string;
   items: SummaryItem[];
-  /** Overdue tasks that belong to other people and are hidden by the "Showing" choice. */
-  more?: number;
+  /** The first few overdue tasks that belong to other people and are hidden by "Showing". */
+  others?: OtherOverdue[];
+  /** How many overdue tasks "Showing" hides in all (more than ``others`` when there are many). */
+  hidden?: number;
 }) {
   const expanded = useSignal(false);
+  // Anything overdue, anywhere in the firm, makes the card loud: that is what the board is for.
+  const alarm = keyName === "overdue" && items.length + hidden > 0;
+  const count = keyName === "overdue" ? items.length + hidden : items.length;
   return (
-    <div class={`sumcard ${keyName}${expanded.value ? " expanded" : ""}`} data-group={keyName}>
+    <div class={`sumcard ${keyName}${alarm ? " alarm" : ""}${expanded.value ? " expanded" : ""}`} data-group={keyName}>
       <h3>
         <span>{label}</span>
-        <span>{items.length}</span>
+        <span class="sum-count">{count}</span>
       </h3>
       {items.length ? (
         <>
@@ -67,11 +74,37 @@ function SummaryGroup({
           )}
         </>
       ) : (
-        <p class="muted small">{keyName === "overdue" ? "Nothing overdue." : keyName === "today" ? "Nothing due today." : "Nothing due soon."}</p>
+        <p class="muted small">
+          {keyName === "overdue"
+            ? hidden > 0
+              ? "Nothing overdue for you."
+              : "Nothing overdue."
+            : keyName === "today"
+              ? "Nothing due today."
+              : "Nothing due soon."}
+        </p>
       )}
-      {more > 0 && (
+      {others.length > 0 && (
+        <>
+          <p class="sum-sub">Overdue for others</p>
+          <div class="sum-list">
+            {others.map((t) => (
+              <button key={t.id} type="button" class="sum-item" title={`Open: ${t.title}`} onClick={() => openTask(t.id)}>
+                <span class="sum-title">{t.title}</span>
+                <span class="sum-meta">
+                  {t.people} · {t.due_label}
+                </span>
+                <span class="sum-go">
+                  <Icon name="chevron-right" size={14} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {hidden > 0 && (
         <button type="button" class="btn link small sum-more" onClick={() => setWho("all")}>
-          {more} more overdue across the firm · Show everyone
+          {hidden > others.length ? `${hidden - others.length} more overdue · ` : ""}Show everyone
         </button>
       )}
     </div>
@@ -95,12 +128,59 @@ export function Summary() {
         </div>
       ) : (
         <div class="summary" data-overdue={data.overdue.length}>
-          <SummaryGroup keyName="overdue" label="Overdue" items={overdue} more={hiddenOverdue > 0 ? hiddenOverdue : 0} />
+          <SummaryGroup
+            keyName="overdue"
+            label="Overdue"
+            items={overdue}
+            others={who.value !== "all" ? data.others_overdue : []}
+            hidden={hiddenOverdue > 0 ? hiddenOverdue : 0}
+          />
           <SummaryGroup keyName="today" label="Due today" items={today} />
           <SummaryGroup keyName="soon" label="Next 3 days" items={soon} />
         </div>
       )}
     </section>
+  );
+}
+
+/** On a phone, one line of what is due, so the deadlines are in sight without leaving the Board tab. */
+function DeadlineLine() {
+  const data = summary.value;
+  if (!data) return null;
+  const hidden = who.value !== "all" ? Math.max(0, data.firm_overdue - data.overdue.length) : 0;
+  const parts: string[] = [];
+  if (data.overdue.length) parts.push(`${data.overdue.length} overdue`);
+  if (hidden) parts.push(`${hidden} overdue for others`);
+  if (data.today.length) parts.push(`${data.today.length} due today`);
+  if (data.soon.length) parts.push(`${data.soon.length} in 3 days`);
+  const late = data.overdue.length + hidden > 0;
+  return (
+    <button type="button" class={`deadline-line${late ? " late" : ""}`} onClick={() => setTab("soon")}>
+      <span>{parts.length ? parts.join(" · ") : "Nothing due in the next 3 days"}</span>
+      <Icon name="chevron-right" size={16} />
+    </button>
+  );
+}
+
+/** A one-time reminder that cards respond to a swipe or a long press (invisible otherwise). */
+function SwipeTip() {
+  const key = "tb-swipe-tip";
+  const gone = useSignal(recall(key) === "1");
+  if (gone.value) return null;
+  return (
+    <p class="swipe-tip">
+      Swipe a card right to move it on, or left (or press and hold) for more.{" "}
+      <button
+        type="button"
+        class="linkbtn"
+        onClick={() => {
+          remember(key, "1");
+          gone.value = true;
+        }}
+      >
+        Got it
+      </button>
+    </p>
   );
 }
 
@@ -259,6 +339,7 @@ export function BoardView() {
           No task title contains “{query}”. Searching covers the tasks in “Showing”: try <strong>Everyone</strong>.
         </p>
       )}
+      <DeadlineLine />
       <div class="col-tabs" role="tablist" aria-label="Status">
         {statuses.map((s) => (
           <button key={s.value} type="button" role="tab" data-seg={s.value} onClick={() => setSeg(s.value as Status)}>
@@ -266,6 +347,7 @@ export function BoardView() {
           </button>
         ))}
       </div>
+      {everything > 0 && <SwipeTip />}
       <div class="board">
         {statuses.map((s) => (
           <Column key={s.value} status={s.value as Status} label={s.label} cards={shown(s.value as Status)} total={total} />

@@ -3,7 +3,7 @@ import { useSignal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { api, ApiError } from "../api/client";
-import { afterPeopleChange, checkForUpdate, chooseAutoUpdate, createTask, me, meta, modal, people, refreshUpdate, updateInfo } from "../state";
+import { afterPeopleChange, askConfirm, checkForUpdate, chooseAutoUpdate, createTask, me, meta, modal, people, refreshUpdate, updateInfo } from "../state";
 import { Avatar } from "./bits";
 import { CloseButton } from "./Modal";
 
@@ -155,17 +155,22 @@ export function PeopleDialog() {
             <button
               type="button"
               class="btn small"
-              onClick={() =>
-                confirm(`Give ${p.name} a new temporary password? They'll be signed out.`) &&
-                run(async () => {
+              onClick={async () => {
+                const ok = await askConfirm({
+                  title: `Give ${p.name} a new temporary password?`,
+                  body: "They will be signed out everywhere and must choose their own password when they next sign in.",
+                  confirmLabel: "Reset password",
+                });
+                if (!ok) return;
+                await run(async () => {
                   const r = await api.resetPassword(p.id);
                   return (
                     <>
                       New temporary password for {p.name}: <code>{r.temporary_password}</code>. They'll choose their own when they next sign in.
                     </>
                   );
-                })
-              }
+                });
+              }}
             >
               Reset password
             </button>
@@ -186,13 +191,19 @@ export function PeopleDialog() {
                 <button
                   type="button"
                   class="btn small danger"
-                  onClick={() =>
-                    confirm(`Remove ${p.name}? They won't be able to sign in, and they'll be taken off their open tasks. Their past updates stay.`) &&
-                    run(async () => {
+                  onClick={async () => {
+                    const ok = await askConfirm({
+                      title: `Remove ${p.name}?`,
+                      body: "They won't be able to sign in, and they'll be taken off their open tasks. Their past updates stay.",
+                      confirmLabel: "Remove",
+                      danger: true,
+                    });
+                    if (!ok) return;
+                    await run(async () => {
                       await api.removePerson(p.id);
                       return `Removed ${p.name}.`;
-                    })
-                  }
+                    });
+                  }}
                 >
                   Remove
                 </button>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Task, Update } from "../api/types";
 import { dismissGesture, isPhone } from "../gestures";
 import {
-  closeTask, deleteTask, fieldErrors, meta, moveTask, openTask, openTaskId, people, postUpdate, saveStatus,
+  askConfirm, closeTask, confirmDelete, deleteTask, fieldErrors, meta, moveTask, openTask, openTaskId, people, postUpdate, saveStatus,
   saveTask, task,
 } from "../state";
 import { isBefore, isTyping } from "../util";
@@ -157,7 +157,7 @@ function Composer({ id, justPosted }: { id: number; justPosted: { current: boole
         name="body"
         rows={3}
         maxLength={5000}
-        placeholder="Write an update… (Ctrl/⌘ + Enter to post)"
+        placeholder={isPhone() ? "Write an update…" : "Write an update… (Ctrl/⌘ + Enter to post)"}
         required
         value={body}
         onInput={(e) => setBody(e.currentTarget.value)}
@@ -264,13 +264,19 @@ function Panel({ t }: { t: Task }) {
                 required
                 defaultValue={t.due}
                 key={t.due}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const input = e.currentTarget;
                   const date = input.value;
                   if (!date || date === t.due) return;
                   // A date in the past is usually a slip of the finger, and an overdue task shouts at everyone.
                   if (t.status !== "done" && meta.value && isBefore(date, meta.value.today)) {
-                    if (!confirm("That date is in the past, so this task will show as overdue. Save it anyway?")) {
+                    const ok = await askConfirm({
+                      title: "That date has already passed",
+                      body: "Saving it makes this task show as overdue straight away.",
+                      confirmLabel: "Save anyway",
+                      cancelLabel: "Keep the old date",
+                    });
+                    if (!ok) {
                       input.value = t.due;
                       return;
                     }
@@ -322,7 +328,10 @@ function Panel({ t }: { t: Task }) {
             <button
               type="button"
               class="btn link danger small"
-              onClick={() => confirm("Delete this task and all its updates? This can't be undone.") && deleteTask(t.id)}
+              onClick={async () => {
+                const comments = t.updates.filter((u) => u.kind === "comment").length;
+                if (await confirmDelete(t.title, comments)) void deleteTask(t.id);
+              }}
             >
               Delete task
             </button>

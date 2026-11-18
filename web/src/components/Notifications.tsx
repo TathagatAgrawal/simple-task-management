@@ -7,9 +7,9 @@ import {
 } from "../alerts";
 import type { Mode, Notification } from "../api/types";
 import {
-  clearReadNotifications, dismissNotifications, markAllRead, markRead, markUnread, meta, modal,
+  askConfirm, clearReadNotifications, dismissNotifications, markAllRead, markRead, markUnread, meta, modal,
   notifications, openNotification, panelOpen, refreshNotifications, refreshSettings,
-  saveNotificationSetting, setTab, settings, unread,
+  saveAllNotificationSettings, saveNotificationSetting, setTab, settings, unread,
 } from "../state";
 import { badgeText, groupNotifications, type NotificationGroup } from "../util";
 import { Icon } from "./Icon";
@@ -199,10 +199,13 @@ export function NotificationList() {
           type="button"
           class="linkbtn"
           disabled={readCount === 0}
-          onClick={() => {
-            if (confirm(`Clear ${readCount} read notification${readCount === 1 ? "" : "s"}? This can't be undone.`)) {
-              void clearReadNotifications();
-            }
+          onClick={async () => {
+            const ok = await askConfirm({
+              title: `Clear ${readCount} read notification${readCount === 1 ? "" : "s"}?`,
+              body: "They leave your list for good. Notifications you haven't read stay.",
+              confirmLabel: "Clear",
+            });
+            if (ok) void clearReadNotifications();
           }}
         >
           Clear read
@@ -322,6 +325,24 @@ export function Toasts() {
   );
 }
 
+const MODE_HELP: Record<string, string> = {
+  alert: "A bell entry, and an alert on each device where you've turned alerts on (a message on the page if a device has none).",
+  inbox: "A bell entry only, quietly.",
+  off: "You aren't told.",
+};
+
+/** A short word for whether alerts are on for this device, shown beside the heading. */
+function deviceStatus(): { label: string; tone: string } {
+  const push = pushState.value;
+  const system = push !== "unsupported" && push !== "server-off";
+  const state = system ? push : alertState.value;
+  if (state === "on") return { label: "On", tone: "green" };
+  if (state === "blocked") return { label: "Blocked", tone: "red" };
+  if (state === "install") return { label: "Needs Home Screen", tone: "amber" };
+  if (state === "unsupported") return { label: "Not available", tone: "" };
+  return { label: "Off", tone: "" };
+}
+
 export function NotificationSettings() {
   const saved = useSignal<{ kind: string; text: string } | null>(null);
   useEffect(() => {
@@ -330,62 +351,87 @@ export function NotificationSettings() {
   const current = settings.value;
   const kinds = meta.value?.notification_kinds ?? [];
   const modes = meta.value?.notification_modes ?? [];
-  const mode = (value: string) => modes.find((m) => m.value === value)?.label ?? value;
+  const status = deviceStatus();
+  // One answer for everything when every kind has the same mode; otherwise it is "customised".
+  const values = current ? kinds.map((k) => current[k.kind]) : [];
+  const same = values.length > 0 && values.every((v) => v === values[0]) ? values[0] : null;
+  const save = async (kind: string, run: () => Promise<void>) => {
+    saved.value = null;
+    try {
+      await run();
+      saved.value = { kind, text: "Saved ✓" };
+    } catch {
+      saved.value = { kind, text: "Couldn't save. Please try again." };
+      void refreshSettings();
+    }
+  };
   return (
     <div id="notif-settings">
       <h2 id="notif-settings-title">Notification settings</h2>
-      <p class="muted small">Choose what you hear about when someone else changes a task you're on. You never hear about your own changes.</p>
-      <ul class="nset-modes small">
-        <li>
-          <strong>{mode("alert")}</strong>: in your bell, and as an alert on each device where you've turned alerts on below (a message on the page if a device has none).
-        </li>
-        <li>
-          <strong>{mode("inbox")}</strong>: in your bell only, quietly.
-        </li>
-        <li>
-          <strong>{mode("off")}</strong>: you aren't told.
-        </li>
-      </ul>
-      <h3 class="nset-section">Alerts on this device</h3>
+      <p class="muted small">You hear about changes other people make to a task you're on or created. You never hear about your own.</p>
+
+      <h3 class="nset-section">
+        Alerts on this device <span class={`chip ${status.tone}`}>{status.label}</span>
+      </h3>
       <AlertsOptin always />
-      <h3 class="nset-section">What you hear about</h3>
+
+      <h3 class="nset-section" id="nset-all">
+        How much do you want to hear?
+        <span class="saved" aria-live="polite">
+          {saved.value?.kind === "all" ? saved.value.text : ""}
+        </span>
+      </h3>
       {current && (
-        <form class="nset" onSubmit={(e) => e.preventDefault()}>
-          {kinds.map((k) => (
-            <div class="nset-row" key={k.kind}>
-              <div class="nset-q" id={`nset-${k.kind}`}>
-                {k.label}
-                <span class="saved" aria-live="polite">
-                  {saved.value?.kind === k.kind ? saved.value.text : ""}
-                </span>
-              </div>
-              <p class="muted small">{k.help}</p>
-              <div class="seg" role="radiogroup" aria-labelledby={`nset-${k.kind}`}>
-                {modes.map((m) => (
-                  <label class="segopt" key={m.value}>
-                    <input
-                      type="radio"
-                      name={`mode_${k.kind}`}
-                      value={m.value}
-                      checked={current[k.kind] === m.value}
-                      onChange={async () => {
-                        saved.value = null;
-                        try {
-                          await saveNotificationSetting(k.kind, m.value as Mode);
-                          saved.value = { kind: k.kind, text: "Saved ✓" };
-                        } catch {
-                          saved.value = { kind: k.kind, text: "Couldn't save. Please try again." };
-                          void refreshSettings();
-                        }
-                      }}
-                    />
-                    <span>{m.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </form>
+        <>
+          <div class="seg" role="radiogroup" aria-labelledby="nset-all">
+            {modes.map((m) => (
+              <label class="segopt" key={m.value}>
+                <input
+                  type="radio"
+                  name="mode_all"
+                  value={m.value}
+                  checked={same === m.value}
+                  onChange={() => save("all", () => saveAllNotificationSettings(m.value as Mode))}
+                />
+                <span>{m.label}</span>
+              </label>
+            ))}
+          </div>
+          <p class="muted small nset-help">
+            {same ? MODE_HELP[same] : "Customised: you chose differently for some events below. Pick one above to set them all."}
+          </p>
+
+          <details class="nset-more" open={same === null}>
+            <summary>Customise by event</summary>
+            <form class="nset" onSubmit={(e) => e.preventDefault()}>
+              {kinds.map((k) => (
+                <div class="nset-row" key={k.kind}>
+                  <div class="nset-q" id={`nset-${k.kind}`}>
+                    {k.label}
+                    <span class="saved" aria-live="polite">
+                      {saved.value?.kind === k.kind ? saved.value.text : ""}
+                    </span>
+                  </div>
+                  <p class="muted small">{k.help}</p>
+                  <div class="seg" role="radiogroup" aria-labelledby={`nset-${k.kind}`}>
+                    {modes.map((m) => (
+                      <label class="segopt" key={m.value}>
+                        <input
+                          type="radio"
+                          name={`mode_${k.kind}`}
+                          value={m.value}
+                          checked={current[k.kind] === m.value}
+                          onChange={() => save(k.kind, () => saveNotificationSetting(k.kind, m.value as Mode))}
+                        />
+                        <span>{m.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </form>
+          </details>
+        </>
       )}
     </div>
   );

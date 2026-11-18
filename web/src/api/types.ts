@@ -13,6 +13,7 @@ export type Card = Schemas["Card"];
 export type Board = Schemas["Board"];
 export type Summary = Schemas["Summary"];
 export type SummaryItem = Schemas["SummaryItem"];
+export type OtherOverdue = Schemas["OtherOverdue"];
 export type Task = Schemas["Task"];
 export type TaskPatched = Schemas["TaskPatched"];
 export type Update = Schemas["Update"];

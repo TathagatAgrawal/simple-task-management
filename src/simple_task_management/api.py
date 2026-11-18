@@ -26,6 +26,7 @@ from .config import Settings
 from .recurrence import REPEAT_LABELS
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+OTHERS_OVERDUE_SHOWN = 3  # how many hidden overdue tasks the strip names
 
 
 class Body(BaseModel):
@@ -351,6 +352,23 @@ def build_api(
             raise HTTPException(404, "That task doesn't exist.")
         return task
 
+    def others_overdue(
+        conn: sqlite3.Connection, everyone: list[dict], shown: list[dict], now_day: date
+    ) -> list[dict]:
+        """The firm's overdue tasks that the current filter hides (the first few), with their people."""
+        shown_ids = {t["id"] for t in shown}
+        hidden = [t for t in everyone if t["id"] not in shown_ids][:OTHERS_OVERDUE_SHOWN]
+        people = store.assignees_for(conn, [t["id"] for t in hidden])
+        return [
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "due_label": dates.due_label(t["due"], now_day)[0],
+                "people": ", ".join(p["name"].split()[0] for p in people[t["id"]]) or "Unassigned",
+            }
+            for t in hidden
+        ]
+
     @api.get("/summary", tags=["board"], response_model=schemas.Summary)
     def summary(conn: Conn, user: User, who: str = "me") -> dict:
         """Open tasks that are overdue, due today, or due in the next three days.
@@ -377,6 +395,9 @@ def build_api(
             },
             # Overdue work across the whole firm, so "My tasks" can never hide it.
             "firm_overdue": len(everyone["overdue"]),
+            "others_overdue": others_overdue(
+                conn, everyone["overdue"], buckets["overdue"], now_day
+            ),
         }
 
     @api.get("/board", tags=["board"], response_model=schemas.Board)
