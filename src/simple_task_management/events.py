@@ -12,7 +12,7 @@ import contextlib
 import json
 from collections.abc import AsyncIterator
 
-TOPICS = ("tasks", "notifications", "people")
+TOPICS = ("tasks", "notifications", "people", "updates")
 HEARTBEAT_SECONDS = 25.0  # keeps proxies from closing a quiet connection
 
 

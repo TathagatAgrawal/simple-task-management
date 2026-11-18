@@ -17,6 +17,9 @@ class Settings:
     backup_hour: int = 23
     backup_keep: int = 30
     backups_enabled: bool = True
+    # Look for a newer version on GitHub every few hours (it only looks; update.ps1 installs).
+    update_check_enabled: bool = False
+    update_check_hours: float = 6
 
     @property
     def db_path(self) -> Path:
@@ -65,4 +68,6 @@ def load_settings(base_dir: Path | None = None) -> Settings:
         backup_hour=int(env.get("BACKUP_HOUR", "23")),
         backup_keep=int(env.get("BACKUP_KEEP", "30")),
         backups_enabled=env.get("BACKUPS_ENABLED", "1") not in {"0", "false", "no"},
+        update_check_enabled=env.get("UPDATE_CHECK", "1") not in {"0", "false", "no"},
+        update_check_hours=float(env.get("UPDATE_CHECK_HOURS", "6")),
     )

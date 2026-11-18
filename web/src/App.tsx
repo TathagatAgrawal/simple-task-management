@@ -2,7 +2,7 @@
 import { Login, SetPassword } from "./components/Auth";
 import { BoardView, Summary } from "./components/Board";
 import { AlertsView, Banner, CardActions, MeView, TabBar, TopBar } from "./components/Chrome";
-import { NewTaskForm, PasswordForm, PeopleDialog } from "./components/Dialogs";
+import { NewTaskForm, PasswordForm, PeopleDialog, UpdatesDialog } from "./components/Dialogs";
 import { Modal } from "./components/Modal";
 import { BellPanel, NotificationSettings, Toasts } from "./components/Notifications";
 import { TaskDrawer } from "./components/TaskDrawer";
@@ -43,6 +43,11 @@ export function App() {
         {user.is_admin && (
           <Modal name="people" wide labelledBy="people-title">
             <PeopleDialog />
+          </Modal>
+        )}
+        {user.is_admin && (
+          <Modal name="updates" wide labelledBy="updates-title">
+            <UpdatesDialog />
           </Modal>
         )}
       </>

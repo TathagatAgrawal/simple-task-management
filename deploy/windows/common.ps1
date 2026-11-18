@@ -3,6 +3,7 @@
 $ErrorActionPreference = "Stop"
 $AppDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $TaskName = "TaskBoard"
+$UpdateTaskName = "TaskBoardUpdate"
 $Port = 8000
 $HealthUrl = "http://127.0.0.1:$Port/healthz"
 

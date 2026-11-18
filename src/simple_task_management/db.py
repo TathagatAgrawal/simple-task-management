@@ -44,6 +44,31 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (user_id, kind)
     ) WITHOUT ROWID;
     """,
+    # 3 -> 4: tasks created before notifications existed. Everyone who is on an open task gets one
+    # unread notification for it ("assigned you to this task"), dated when they were added, so
+    # the bell shows their current work right after the update and they can read or clear it.
+    # They are "bell only" (announce = 0): no pop-up and no desktop alert for old news. Skipped:
+    # finished tasks, people who were removed, the person who made the task (they assigned
+    # themselves), and anyone who already has a notification about that task.
+    """
+    INSERT INTO notifications (user_id, task_id, task_title, actor_id, body, kind, announce, created_at)
+    SELECT a.user_id, t.id, t.title, t.created_by, 'assigned you to this task', 'assigned', 0, a.added_at
+    FROM task_assignees a
+    JOIN tasks t ON t.id = a.task_id
+    JOIN users u ON u.id = a.user_id AND u.is_active = 1
+    WHERE t.status != 'done'
+      AND (t.created_by IS NULL OR t.created_by != a.user_id)
+      AND NOT EXISTS (
+          SELECT 1 FROM notifications n WHERE n.user_id = a.user_id AND n.task_id = t.id
+      );
+    """,
+    # 4 -> 5: small settings the app keeps for itself (for example whether to update automatically).
+    """
+    CREATE TABLE app_settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    ) WITHOUT ROWID;
+    """,
 ]
 
 

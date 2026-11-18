@@ -106,6 +106,7 @@
       <li><a href="#settings">Theme, password, sign out</a></li>
       <li><a href="#phone">On your phone</a></li>
       <li><a href="#people">For admins: people</a></li>
+      <li><a href="#updates">For admins: updates</a></li>
       <li><a href="#faq">Problems and questions</a></li>
     </ol>
   </nav>
@@ -305,6 +306,12 @@
                (4, "<strong>Remove</strong>: when someone leaves. They can't sign in any more and are taken off their open tasks, but their past updates stay. You can't remove yourself."),
                (5, "To add someone, type their <strong>full name</strong> and a <strong>username</strong> (lowercase, no spaces, e.g. <em>neha</em>)…"),
                (6, "…and click <strong>Add person</strong>. Adding a username that was removed earlier brings that person back.")]) }}
+
+    <!-- ================================================================== -->
+    <h2 id="updates">For admins: updates</h2>
+    <p>Admins also see <strong>Updates</strong> in their menu (it says <em>new version</em> when one is waiting). It shows whether a newer version of the app is available on GitHub and what changed; press <em>Check now</em> to look right away. Looking never changes anything: a new version is installed on the firm's PC with <code>update.ps1</code>.</p>
+    <p>If you turn on <strong>Update automatically at night</strong>, the PC does that itself at about 3 am (after the one-time setup <code>update.ps1 -EnableAutoUpdate</code>): it takes a backup, installs the new version, restarts the app, which is unavailable for a minute or two, and checks that all your tasks and people are still there. If the new version won't start, the old one is put back. The same window shows what the last automatic run did. After an update, everyone should refresh the page once (<kbd>Ctrl</kbd>+<kbd>F5</kbd>).</p>
+    <p>When the app is updated, everyone who is on an open task gets one unread notification for it in their bell (“assigned you to this task”), so existing work shows up right away. These are bell-only: no message pops up and no desktop alert is sent. Read or clear them like any other.</p>
 
     <!-- ================================================================== -->
     <h2 id="faq">Problems and questions</h2>

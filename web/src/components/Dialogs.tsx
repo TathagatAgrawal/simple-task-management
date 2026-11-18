@@ -1,9 +1,9 @@
 // The New task, Change password and Manage people dialogs.
 import { useSignal } from "@preact/signals";
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { api, ApiError } from "../api/client";
-import { afterPeopleChange, createTask, me, meta, modal, people } from "../state";
+import { afterPeopleChange, checkForUpdate, chooseAutoUpdate, createTask, me, meta, modal, people, refreshUpdate, updateInfo } from "../state";
 import { Avatar } from "./bits";
 import { CloseButton } from "./Modal";
 
@@ -228,6 +228,91 @@ export function PeopleDialog() {
           {error}
         </p>
       </form>
+      <CloseButton label="Done" />
+    </div>
+  );
+}
+
+/** Admins only: is a newer version waiting, and should the PC install new versions by itself at night? */
+export function UpdatesDialog() {
+  const info = updateInfo.value;
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  useEffect(() => {
+    void refreshUpdate();
+  }, []);
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setProblem("");
+    try {
+      await action();
+    } catch (err) {
+      setProblem(message(err));
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div id="updates">
+      <h2 id="updates-title">Updates</h2>
+      {!info && <p class="muted">Loading…</p>}
+      {info && (
+        <>
+          {info.error && <p class={info.supported ? "error" : "muted"}>{info.error}</p>}
+          {!info.error && info.available && (
+            <>
+              <p>
+                <strong>A newer version is available</strong> ({info.behind} change{info.behind === 1 ? "" : "s"}):
+              </p>
+              <ul class="update-list">
+                {info.commits.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {!info.error && !info.available && info.checked_when && <p>You have the latest version.</p>}
+          {!info.error && !info.checked_when && <p class="muted">Not checked yet.</p>}
+          <p class="muted small">
+            {info.current && <>This PC is on version {info.current}. </>}
+            {info.checked_when && <>Last checked {info.checked_when}.</>}
+          </p>
+          <div class="row">
+            <button class="btn" type="button" disabled={busy || !info.supported} onClick={() => run(checkForUpdate)}>
+              {busy ? "Checking…" : "Check now"}
+            </button>
+          </div>
+          <p class="muted small">
+            A new version is installed on the PC with <code>update.ps1</code>, or by itself at night when the choice below is on. Nothing
+            changes until then.
+          </p>
+          <h3 class="nset-section">Update automatically at night</h3>
+          <label class="chip-toggle">
+            <input type="checkbox" checked={info.auto_update} disabled={busy} onChange={(e) => run(() => chooseAutoUpdate(e.currentTarget.checked))} />
+            {info.auto_update ? "On" : "Off"}
+          </label>
+          <p class="muted small">
+            When on, the PC looks for a new version at about 3 am. If there is one, it takes a backup, installs it and restarts the app
+            (unavailable for a minute or two), then checks that all your data is still there. If the new version won't start, the old one is
+            put back. This needs the nightly task set up once on the PC by running <code>update.ps1 -EnableAutoUpdate</code>.
+          </p>
+          {info.last_run ? (
+            <p class="small">
+              <strong>Last automatic run:</strong> {info.last_run.when}. {info.last_run.result === "updated" && "Updated. "}
+              {info.last_run.result === "failed" && "It failed. "}
+              {info.last_run.result === "up-to-date" && "Nothing new. "}
+              {info.last_run.result === "available" && "A new version was waiting, and automatic updates are off. "}
+              {info.last_run.detail}
+            </p>
+          ) : (
+            <p class="muted small">No automatic run yet.</p>
+          )}
+        </>
+      )}
+      <p class="error form-error" aria-live="polite">
+        {problem}
+      </p>
       <CloseButton label="Done" />
     </div>
   );

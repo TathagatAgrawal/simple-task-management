@@ -2,7 +2,7 @@
 // the page refetches what it shows. A slow refresh and a refresh when the window regains focus
 // remain as a safety net, so a dropped connection can never leave anyone looking at old data.
 import {
-  me, refreshAll, refreshBoard, refreshNotifications, refreshPeople, refreshTask,
+  me, refreshAll, refreshBoard, refreshNotifications, refreshPeople, refreshTask, refreshUpdate,
 } from "./state";
 
 const SAFETY_NET_MS = 60_000;
@@ -18,6 +18,7 @@ function onTopics(topics: string[]): void {
   }
   if (topics.includes("notifications")) void refreshNotifications();
   if (topics.includes("people")) void refreshPeople();
+  if (topics.includes("updates")) void refreshUpdate();
 }
 
 function connect(): void {

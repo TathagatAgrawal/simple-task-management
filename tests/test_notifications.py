@@ -161,7 +161,7 @@ def test_migration_adds_the_table_to_a_version_1_database(tmp_path):
     conn = db.connect(tmp_path / "old.db")
     conn.executescript(db.SCHEMA_PATH.read_text(encoding="utf-8"))
     conn.execute("PRAGMA user_version = 1")
-    assert db.migrate(conn) == 3
+    assert db.migrate(conn) == 5
     assert conn.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 0
 
 
@@ -287,7 +287,7 @@ def test_migration_backfills_the_kind_of_old_notifications(tmp_path):
             "VALUES (1, 1, 'T', ?, '2026-11-14T00:00:00+00:00')",
             (body,),
         )
-    assert db.migrate(conn) == 3
+    assert db.migrate(conn) == 5
     kinds = [r[0] for r in conn.execute("SELECT kind FROM notifications ORDER BY id")]
     assert kinds == ["assigned", "removed", "comment", "deleted", "moved", "moved", "changed"]
 

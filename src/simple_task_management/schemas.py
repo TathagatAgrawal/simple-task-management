@@ -192,6 +192,31 @@ class Notification(BaseModel):
     due_tone: str
 
 
+class LastRun(BaseModel):
+    """What the nightly update did the last time it ran."""
+
+    ran_at: str
+    when: str
+    result: str
+    detail: str
+
+
+class UpdateInfo(BaseModel):
+    """Whether a newer version of the app is waiting on GitHub, and the update settings."""
+
+    supported: bool
+    available: bool
+    behind: int
+    current: str
+    latest: str
+    commits: list[str]
+    checked_at: str | None
+    checked_when: str | None
+    error: str | None
+    auto_update: bool
+    last_run: LastRun | None
+
+
 class Unread(BaseModel):
     """The bell's numbers."""
 

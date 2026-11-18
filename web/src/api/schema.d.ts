@@ -446,6 +446,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Update
+         * @description Is a newer version waiting on GitHub? (Admins only.) Installing it is done on the PC.
+         */
+        get: operations["get_update_update_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Update
+         * @description Turn automatic nightly updates on or off. Admins only; the PC's nightly task does the work.
+         */
+        patch: operations["patch_update_update_patch"];
+        trace?: never;
+    };
+    "/update/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Update
+         * @description Look at GitHub right now (takes a few seconds). Admins only.
+         */
+        post: operations["check_update_update_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -508,6 +552,20 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * LastRun
+         * @description What the nightly update did the last time it ran.
+         */
+        LastRun: {
+            /** Detail */
+            detail: string;
+            /** Ran At */
+            ran_at: string;
+            /** Result */
+            result: string;
+            /** When */
+            when: string;
         };
         /**
          * LoginIn
@@ -921,6 +979,41 @@ export interface components {
         UpdateIn: {
             /** Body */
             body: string;
+        };
+        /**
+         * UpdateInfo
+         * @description Whether a newer version of the app is waiting on GitHub, and the update settings.
+         */
+        UpdateInfo: {
+            /** Auto Update */
+            auto_update: boolean;
+            /** Available */
+            available: boolean;
+            /** Behind */
+            behind: number;
+            /** Checked At */
+            checked_at: string | null;
+            /** Checked When */
+            checked_when: string | null;
+            /** Commits */
+            commits: string[];
+            /** Current */
+            current: string;
+            /** Error */
+            error: string | null;
+            last_run: components["schemas"]["LastRun"] | null;
+            /** Latest */
+            latest: string;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
+         * UpdatePatch
+         * @description Turn automatic nightly updates on or off.
+         */
+        UpdatePatch: {
+            /** Auto Update */
+            auto_update: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -1722,6 +1815,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_update_update_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateInfo"];
+                };
+            };
+        };
+    };
+    patch_update_update_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_update_update_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateInfo"];
                 };
             };
         };
