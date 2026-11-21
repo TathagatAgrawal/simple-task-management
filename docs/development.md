@@ -33,7 +33,7 @@ To change the web client, keep a second terminal running `npm --prefix web run d
 | `npm --prefix web run typecheck` | Type-check only |
 | `uv add <pkg>` / `uv add --dev <pkg>` | Add a dependency, which updates `uv.lock`. Read [philosophy.md](philosophy.md) first |
 
-CI (`.github/workflows/ci.yml`) runs lint and format on Ubuntu, the tests on Ubuntu, Windows and macOS, type-checks and tests the web client and fails if the committed `schema.d.ts` or `static/dist/app.js` differ from a fresh build, and parses plus PSScriptAnalyzer-checks every `deploy/windows/*.ps1`.
+CI (`.github/workflows/ci.yml`) runs lint and format on Ubuntu, the tests on Ubuntu, Windows and macOS, type-checks and tests the web client and fails if the committed `schema.d.ts` or `static/dist/app.js` differ from a fresh build, parses plus PSScriptAnalyzer-checks every `deploy/windows/*.ps1`, and parses plus ShellChecks every `deploy/linux/*.sh`.
 
 ## Conventions
 

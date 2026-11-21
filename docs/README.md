@@ -18,7 +18,7 @@ Three people share a board of tasks. Each task has a title, notes, one or more a
 | 2 | [architecture.md](architecture.md) | How a request flows, the TypeScript client and the JSON API it uses, live updates, and what each module owns |
 | 3 | [data-model.md](data-model.md) | The tables, their invariants, recurring tasks, history events, dates and timezones, migrations |
 | 4 | [development.md](development.md) | Setup, commands, code conventions, step-by-step recipes for common changes, testing, and known gotchas |
-| 5 | [operations.md](operations.md) | How it's deployed and run on Windows, the security model, backups and recovery |
+| 5 | [operations.md](operations.md) | How it's deployed and run on Windows and on a Linux VM, the security model, backups and recovery |
 | – | [design/plan.html](design/plan.html) | The original design plan with diagrams and UI mockups. It's the historical record of *why*; where it differs from the code, the code and these docs win. |
 | – | [design/ux-critique-2026-11-18.md](design/ux-critique-2026-11-18.md) | A UX critique of the board (score, findings, persona red flags) and the decisions on what to fix. Not implemented yet; it's the brief for that pass. |
 | – | [design/notifications.html](design/notifications.html) | The notifications design. All three phases are built: the inbox, desktop alerts, and Web Push (see the next row). Where it differs from the code, the code wins: it notifies on every change, not only assignment. |
@@ -50,6 +50,7 @@ web/              the client's source: TypeScript + Preact (needs Node to build,
   scripts/help-screenshots.mjs   retakes the manual's pictures (Node + Chrome)
 tests/            pytest; one file per area; fixed clock in conftest.py
 deploy/windows/   PowerShell scripts for install, status, restart, update
+deploy/linux/     the same as bash scripts, plus the systemd unit template
 docs/             you are here
 ```
 

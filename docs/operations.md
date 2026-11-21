@@ -1,6 +1,6 @@
 # Operations
 
-How the app is deployed and kept running at the firm. Step-by-step instructions for whoever does the install are in the root [README.md](../README.md#deploying-to-the-firms-windows-pc). This page explains how the pieces fit together, for developers.
+How the app is deployed and kept running at the firm. Step-by-step instructions for whoever does the install are in the root [README.md](../README.md#deploying-to-the-firms-windows-pc) (Windows) and [below](#linux-server-deploylinux) (Linux). This page explains how the pieces fit together, for developers.
 
 ## Production shape
 
@@ -37,6 +37,32 @@ All of them except `uninstall.ps1` dot-source `common.ps1`, which sets `$AppDir`
 | `update.ps1` | Yes | Counts the data, takes a backup, gets the latest version (git, or `-ZipPath` for a folder without git), installs dependencies, starts the app, checks the page loads, and counts the data again. Puts the previous version back if the new one won't start. `-CheckOnly` just reports what's new; `-Force` replaces the app's own files if local edits or a different history stop the update. `-EnableAutoUpdate` / `-DisableAutoUpdate` set up or remove the nightly task. See "Updating the app" below |
 
 These scripts can't run on macOS. CI parses them and runs PSScriptAnalyzer on `windows-latest`, but they have **not** been executed end-to-end in CI. Test changes on a real Windows machine.
+
+## Linux server (`deploy/linux/`)
+
+The same app runs on an Ubuntu VM (for example a small DigitalOcean Droplet) with the same shape as the Windows PC: one process on `127.0.0.1:8000`, `tailscale serve` for HTTPS, SQLite under `data/`, and the app's own nightly backup. The scripts are bash and mirror the Windows ones; they are run as a normal user (not root) with passwordless `sudo`, from a git checkout such as `~/TaskBoard`.
+
+| Piece | Where / how |
+|---|---|
+| Process | systemd service **taskboard**, written from `deploy/linux/taskboard.service` by `install.sh`: starts at boot, `Restart=always`, runs as the installing user |
+| Update timer | Optional `taskboard-update.timer` (daily 03:00 IST) runs `update.sh --auto` as a oneshot service. It is created by `update.sh --enable-auto-update` and removed by `--disable-auto-update`. The admins' switch in the app still decides whether anything is installed |
+| Logs | `logs/app.log` as on Windows, plus `journalctl -u taskboard` for crashes before the app's own logging starts |
+| Network | No inbound ports at all: close SSH in the cloud firewall once Tailscale SSH works. `tailscale serve --bg 8000` is the only way in, and the machine needs key expiry disabled in the Tailscale admin console |
+
+| Script | Does |
+|---|---|
+| `install.sh` | Installs git, curl and uv, runs `uv sync --no-dev`, creates `.env`, optionally creates the first admin, writes and enables the systemd service, starts it and runs `tailscale serve` |
+| `status.sh` | Shows the service state, the update timer, `/healthz`, `tailscale serve status`, the latest backup and memory/swap use |
+| `restart.sh [--stop]` | Restarts the service, or only stops it |
+| `update.sh` | The same steps as `update.ps1` (count the data, take a `pre-update` backup, fast-forward to `origin/main`, `uv sync`, start, check the page, count again, roll back if the new version won't start). Options: `--check`, `--force`, `--enable-auto-update [--at HH:MM]`, `--disable-auto-update`. Git checkouts only; there is no ZIP mode. The whole script is one `main` function so an update that rewrites it can't confuse the run in progress |
+
+A private repository needs a way for the server to `git fetch`: either a read-only **deploy key** (`ssh-keygen -t ed25519`, add the public key under the repository's Settings, Deploy keys, and clone with the `git@github.com:` address) or an HTTPS clone with a fine-grained read-only token. The app's own update check uses the same `origin`.
+
+**Backups are on the same disk as the data unless you move them.** The nightly backup goes to `BACKUP_DIR` on the server, which protects against a bad update or a deleted task but not against losing the VM. Turn on the provider's snapshots (DigitalOcean's weekly Backups cost about 20% more) or copy `backups/` somewhere else on a schedule.
+
+**Memory.** The app itself uses roughly 75 to 150 MB. On a 512 MB or 1 GB VM add a 1 to 2 GB swapfile before the first `apt upgrade` or `uv sync`, which can briefly use far more than the app does.
+
+Like the Windows scripts, these are checked in CI (`bash -n` and ShellCheck) and covered by a manual test of the update and roll-back paths against a local git remote, but they are not run end-to-end in CI.
 
 ## Security model
 
@@ -78,6 +104,7 @@ If the counts ever differ, or something looks wrong later, restore the `pre-upda
 | An update failed halfway | `update.ps1` already put the previous version back and says so. If not: `git reset --hard <the commit it printed>`, `uv sync --no-dev`, `restart.ps1`. The data is unchanged unless a migration fully succeeded, and the older version works on it either way |
 | Remove the app completely | `uninstall.ps1`. If the folder was deleted while the app was running, copy `uninstall.ps1` onto the PC and run it from anywhere |
 | Move to a new PC | Copy `C:\TaskBoard` (including `data\`), run `install.ps1` on the new PC, and rename the machine in Tailscale so the URL stays the same |
+| Move to a Linux VM | Clone the repo, run `deploy/linux/install.sh`, stop the old app, copy `data/tasks.db` (plus any `-wal` and `-shm` files next to it) over the new one with the service stopped, then `restart.sh`. The push signing key lives in the database, so devices keep working. Only one copy should run at a time |
 
 ## Local "production-like" test on a Mac
 

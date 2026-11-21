@@ -148,7 +148,7 @@ The deadline strip's Overdue card is loud (`.alarm`) whenever the firm has anyth
 
 `updates.py` only *looks* for a newer version: `git fetch origin main` in the app folder, then the number of commits behind and their subjects, never touching the working files. A `Checker` keeps the last answer and a background loop (in the app's `lifespan`, like the nightly backup) repeats it every `UPDATE_CHECK_HOURS` and tells open pages through the `updates` event topic. Admins get it from `GET /api/update`, can look now with `POST /api/update/check`, and turn automatic nightly updates on or off with `PATCH /api/update` (stored in `app_settings`). The client shows it in the admin-only Updates window (`UpdatesDialog`).
 
-Installing is not done by the app. `deploy/windows/update.ps1` does it (by hand, or nightly with `-Auto` from the `TaskBoardUpdate` task), because it has to stop and restart the app and put the old version back if the new one fails. In `-Auto` mode the script reads the admins' choice through the command `simple-task-management update-setting` and leaves `data\update-last-run.json`, which `updates.read_last_run` shows in the same window.
+Installing is not done by the app. `deploy/windows/update.ps1` (or `deploy/linux/update.sh`, with a systemd timer instead of a scheduled task) does it (by hand, or nightly with `-Auto` from the `TaskBoardUpdate` task), because it has to stop and restart the app and put the old version back if the new one fails. In `-Auto` mode the script reads the admins' choice through the command `simple-task-management update-setting` and leaves `data\update-last-run.json`, which `updates.read_last_run` shows in the same window.
 
 ## The JSON API
 

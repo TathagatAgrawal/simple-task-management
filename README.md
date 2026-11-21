@@ -130,6 +130,18 @@ Always uninstall with the script, or stop the app first: Windows can't delete th
 
 If the only admin forgets their password: `uv run simple-task-management set-password <username>` on the host PC.
 
+## Deploying to a Linux server
+
+The same app runs on an Ubuntu VM (any small cloud server, 512 MB to 1 GB of RAM is enough). Create the VM, add a swapfile, install Tailscale and join the tailnet, then as a normal user with `sudo`:
+
+```bash
+git clone <the repository address> ~/TaskBoard
+cd ~/TaskBoard
+deploy/linux/install.sh
+```
+
+The scripts `status.sh`, `restart.sh` and `update.sh` in `deploy/linux/` work like their Windows counterparts, and `update.sh --enable-auto-update` sets up the nightly update. Moving data from the Windows PC, backups and the firewall are covered in [docs/operations.md](docs/operations.md#linux-server-deploylinux).
+
 ## User manual
 
 The app includes an illustrated manual with annotated screenshots of every screen and a typical day's workflow. Open it from **Help** in the top bar, from "How to use this app" on the sign-in screen, or directly at `/help`. It's readable without signing in.
